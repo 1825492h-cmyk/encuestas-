@@ -106,14 +106,16 @@ const VERSION_INSTRUMENTO = "B-2026-11-24";
    (termina en /exec). Son dos hojas distintas para que nunca se mezclen los datos.
    - ENDPOINT_TESIS: respuestas de los QR que dejas a los negocios (tesis).
    - ENDPOINT_PRACTICA: respuestas de tus compañeros por ?modo=enlace (materia). */
-const ENDPOINT_TESIS = "https://script.google.com/macros/s/AKfycbypcl1EKOzgKTV87rjWGrgdUeTgDkI9L7SDd4Y2MY_e2_Bq6OnFLwb7kV3yJk5eJzLW/exec";
-const ENDPOINT_PRACTICA = "https://script.google.com/macros/s/AKfycby3KvSRwSjIpF-YVbc936PRb9Ay4wQqAkXpPnd6nIq-hVXDkgGsztyBN9YyODFDEj9q/exec";
+const ENDPOINT_TESIS = "https://script.google.com/macros/s/AKfycbxoD_dG7JY4NmF75-dKZgtg41fBd0Vi5VCghadXKrND-T3SIHKwG-TDp3SvZY_1Kq7z/exec";
+const ENDPOINT_PRACTICA = "https://script.google.com/macros/s/AKfycbwXkhK0ZbuLJCRG3b6HmaL6bpJ65qaIy7nxzxzipbNWwySs53bBmbkfl8lyTDXh1aWM/exec 
+";
 
 const PARAMS = new URLSearchParams(location.search);
 const CODIGO_QR = /^[QI]\d{3}-[A-Z0-9]{2}$/.test(PARAMS.get("c") || "") ? PARAMS.get("c") : null;
-const MODO = CODIGO_QR ? "qr" : (PARAMS.get("modo") === "enlace" ? "practica" : "tablet");
+const CODIGO_P = /^[NT]\d{2}-[A-Z0-9]{2}$/.test(PARAMS.get("p") || "") && ["D0","S6"].includes(PARAMS.get("m")) ? PARAMS.get("p") : null;
+const MODO = CODIGO_QR ? "qr" : CODIGO_P ? "piloto" : (PARAMS.get("modo") === "enlace" ? "practica" : "tablet");
 const MODO_ENLACE = MODO !== "tablet";   // se contesta en el celular de la persona
-const ENDPOINT = MODO === "qr" ? ENDPOINT_TESIS : MODO === "practica" ? ENDPOINT_PRACTICA : "";
+const ENDPOINT = (MODO === "qr" || MODO === "piloto") ? ENDPOINT_TESIS : MODO === "practica" ? ENDPOINT_PRACTICA : "";
 
 const CONSENTIMIENTO = "Hola. Soy Alexis Daniel Bores Loeza, estudiante de la Maestría en Administración de la Universidad Michoacana de San Nicolás de Hidalgo. Estoy haciendo una investigación sobre cómo los negocios de comida manejan su caja y sus ventas. La encuesta dura de 3 a 4 minutos. Es anónima: no le pido su nombre ni el de su negocio. Participar es voluntario y puede dejar de contestar en cualquier momento. Los datos se usan solo para fines académicos y se presentan en conjunto, nunca por negocio. Si tiene dudas, puede escribir a 1825492h@umich.mx.";
 
@@ -161,11 +163,11 @@ const MOTIVOS_NEGATIVA = [["no_quiso","No quiso"],["no_estaba","No estaba el due
    ===================================================================== */
 const DB = (() => {
   let db = null, memoria = null;
-  const STORES = {fase1:{keyPath:"codigo"}, enlaces:{keyPath:"codigo"}, impresos:{keyPath:"codigo"}, negativas:{keyPath:"id", autoIncrement:true}, invitaciones:{keyPath:"codigo"}, config:{keyPath:"k"}};
+  const STORES = {fase1:{keyPath:"codigo"}, enlaces:{keyPath:"codigo"}, impresos:{keyPath:"codigo"}, negocios:{keyPath:"codigo"}, piloto:{keyPath:"id"}, negativas:{keyPath:"id", autoIncrement:true}, invitaciones:{keyPath:"codigo"}, config:{keyPath:"k"}};
   function abrir(){
     return new Promise(res => {
       try{
-        const r = indexedDB.open("encuestas_tesis", 3);
+        const r = indexedDB.open("encuestas_tesis", 4);
         r.onupgradeneeded = () => { for(const [n,o] of Object.entries(STORES)) if(!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n,o); };
         r.onsuccess = () => { db = r.result; res(true); };
         r.onerror = () => { memoria = {}; res(false); };
@@ -264,7 +266,7 @@ async function inicio(){
     ${prom != null ? `<div class="muted small" style="margin-top:10px">Duración promedio de las completas: ${Math.floor(prom/60)} min ${prom%60} s</div>` : ""}
     <div class="home-grid">
       <button class="btn" id="b1">Nueva encuesta Fase 1</button>
-      <button class="btn ghost" id="b2" disabled>Encuesta piloto · próxima etapa</button>
+      <button class="btn ghost" id="b2">Piloto</button>
       <button class="btn ghost" id="b5">Entregar QR · no puede contestar ahora</button>
       <button class="btn ghost" id="b3">Registrar negativa</button>
       <button class="btn quiet" id="b4">Datos y exportación</button>
@@ -272,6 +274,8 @@ async function inicio(){
   document.getElementById("b1").onclick = prepararFase1;
   document.getElementById("b3").onclick = () => registrarNegativa();
   document.getElementById("b5").onclick = entregarQR;
+  document.getElementById("b2").onclick = pantallaPiloto;
+  enviarPendientes();
   document.getElementById("b4").onclick = datos;
 }
 
@@ -482,14 +486,14 @@ function consentimiento(colonia){
     S = { rec: { codigo, modo: MODO, colonia, fecha: fechaLocal(d), hora: horaLocal(d),
                  inicio: fechaHora(d), inicio_ms: d.getTime(), fin: "", duracion_seg: null, completa: 0,
                  ultima_pregunta: "", ans: {}, t: {}, invitacion: null, version: VERSION_INSTRUMENTO },
-          ruta: [], qid: null, t0: 0 };
+          ruta: [], qid: null, t0: 0, Q: PREGUNTAS, tipo: "fase1", volver: inicio };
     await guardar();
     irA(PREGUNTAS[0].id);
   };
 }
 
 const visible = (q, a) => !q.cond || q.cond(a);
-const idx = id => PREGUNTAS.findIndex(q => q.id === id);
+const idx = id => S.Q.findIndex(q => q.id === id);
 
 function pararReloj(){
   if(S && S.qid && S.t0){ S.rec.t[S.qid] = (S.rec.t[S.qid] || 0) + (performance.now() - S.t0) / 1000; }
@@ -498,17 +502,18 @@ function pararReloj(){
 
 async function guardar(){
   // Borra respuestas de preguntas que ya no aplican por un cambio hecho con "Atrás".
-  for(const q of PREGUNTAS) if(!visible(q, S.rec.ans)) delete S.rec.ans[q.id];
-  await DB.put("fase1", S.rec);
+  for(const q of S.Q) if(!visible(q, S.rec.ans)) delete S.rec.ans[q.id];
+  await DB.put(S.tipo === "piloto" ? "piloto" : "fase1", S.rec);
 }
 
 function siguienteId(desde){
-  for(let i = idx(desde) + 1; i < PREGUNTAS.length; i++) if(visible(PREGUNTAS[i], S.rec.ans)) return PREGUNTAS[i].id;
+  for(let i = idx(desde) + 1; i < S.Q.length; i++) if(visible(S.Q[i], S.rec.ans)) return S.Q[i].id;
+  if(S.tipo === "piloto") return "FIN";
   return MODO === "practica" ? "FIN" : "INV";
 }
 
 function progreso(){
-  const vis = PREGUNTAS.filter(q => visible(q, S.rec.ans));
+  const vis = S.Q.filter(q => visible(q, S.rec.ans));
   const pos = ["INV","TEL","FIN"].includes(S.qid) ? vis.length : vis.findIndex(q => q.id === S.qid);
   return Math.round(pos / (vis.length + 1) * 100);
 }
@@ -536,7 +541,7 @@ async function irA(id, conRuta = true){
   if(id === "FIN") return terminar();
   if(id === "INV") return pantallaInvitacion();
   if(id === "TEL") return pantallaTelefono();
-  pantallaPregunta(PREGUNTAS[idx(id)]);
+  pantallaPregunta(S.Q[idx(id)]);
 }
 
 function atras(){
@@ -560,8 +565,9 @@ function pantallaPregunta(q){
     });
   }
   else if(q.type === "scale"){
-    marco(head + `<div class="scale">${[1,2,3,4,5].map(v => `<button class="opt ${a === v ? "sel" : ""}" data-v="${v}">${v}</button>`).join("")}</div>
-      <div class="anchors"><span>1 = ${esc(q.lo)}</span><span>5 = ${esc(q.hi)}</span></div>`, {conAtras: !esPrimera});
+    const n = q.n || 5, vals = Array.from({length: n}, (_, i) => i + 1);
+    marco(head + `<div class="scale" style="grid-template-columns:repeat(${n},1fr)">${vals.map(v => `<button class="opt ${a === v ? "sel" : ""}" data-v="${v}">${v}</button>`).join("")}</div>
+      <div class="anchors"><span>1 = ${esc(q.lo)}</span><span>${n} = ${esc(q.hi)}</span></div>`, {conAtras: !esPrimera});
     $app.querySelectorAll(".opt").forEach(b => b.onclick = () => {
       $app.querySelectorAll(".opt").forEach(x => { x.classList.remove("sel"); x.disabled = true; });
       b.classList.add("sel"); S.rec.ans[q.id] = Number(b.dataset.v); avanzar(q);
@@ -621,7 +627,7 @@ function pantallaTelefono(){
   pintar();
   sig.onclick = async () => {
     const inv = {codigo: S.rec.codigo, telefono: tel, fecha: fechaLocal(new Date())};
-    if(MODO_ENLACE) setPendientes([...pendientes(), JSON.stringify({tipo: "invitacion", fila: inv})]);
+    if(MODO_ENLACE) encolar(JSON.stringify({hoja: "invitaciones", columnas: ["codigo","telefono","fecha"], fila: inv}), ENDPOINT);
     else await DB.put("invitaciones", inv);
     terminar();
   };
@@ -633,39 +639,47 @@ async function terminar(){
   S.rec.fin = fechaHora(d);
   S.rec.duracion_seg = Math.round((d.getTime() - S.rec.inicio_ms) / 1000);
   S.rec.completa = 1; S.rec.ultima_pregunta = "FIN";
+  if(S.tipo === "piloto") S.rec.sus_score = puntajeSUS(S.rec.ans);
   await guardar();
-  const rec = S.rec; S = null;
+  const rec = S.rec, volver = S.volver; S = null;
   if(MODO_ENLACE) return graciasEnlace(rec);
-  gracias();
+  if(rec.tipo === "piloto"){ encolar(paquete(rec), ENDPOINT_TESIS); enviarPendientes(); }
+  gracias(volver);
 }
 
 /* ---------- Envío a Google Sheets (solo modo enlace) ---------- */
-function paquete(rec){ return JSON.stringify({tipo: "respuesta", columnas: columnasFase1(), fila: filaFase1(rec)}); }
-function pendientes(){ try{ return JSON.parse(localStorage.getItem("pendientes") || "[]"); }catch(e){ return []; } }
+function paquete(rec){
+  if(rec.tipo === "piloto") return JSON.stringify({hoja: "piloto_" + rec.momento, columnas: columnasPiloto(rec.momento), fila: filaPiloto(rec), token: rec.token});
+  return JSON.stringify({hoja: "respuestas", columnas: columnasFase1(), fila: filaFase1(rec)});
+}
+// Cola de envíos: si no hay internet, se guardan y se reintentan después.
+function pendientes(){ try{ return JSON.parse(localStorage.getItem("pendientes") || "[]").map(x => typeof x === "string" ? {u: ENDPOINT, c: x} : x); }catch(e){ return []; } }
 function setPendientes(l){ try{ localStorage.setItem("pendientes", JSON.stringify(l)); }catch(e){} }
-async function enviar(cuerpo){
-  if(!ENDPOINT) throw new Error("sin endpoint");
-  await fetch(ENDPOINT, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: cuerpo});
+function encolar(cuerpo, url){ setPendientes([...pendientes(), {u: url, c: cuerpo}]); }
+async function enviar(cuerpo, url){
+  if(!url) throw new Error("sin endpoint");
+  await fetch(url, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: cuerpo});
 }
 async function enviarPendientes(){
   const l = pendientes(); if(!l.length) return true;
   const quedan = [];
-  for(const c of l){ try{ await enviar(c); }catch(e){ quedan.push(c); } }
+  for(const x of l){ try{ await enviar(x.c, x.u); }catch(e){ quedan.push(x); } }
   setPendientes(quedan); return quedan.length === 0;
 }
-function marcarContestado(){ if(CODIGO_QR) try{ localStorage.setItem("contestado_" + CODIGO_QR, "1"); }catch(e){} }
-function yaContestado(){ try{ return !!CODIGO_QR && localStorage.getItem("contestado_" + CODIGO_QR) === "1"; }catch(e){ return false; } }
+const CLAVE_CONTESTADO = CODIGO_QR ? "contestado_" + CODIGO_QR : CODIGO_P ? "contestado_" + CODIGO_P + "_" + PARAMS.get("m") : null;
+function marcarContestado(){ if(CLAVE_CONTESTADO) try{ localStorage.setItem(CLAVE_CONTESTADO, "1"); }catch(e){} }
+function yaContestado(){ try{ return !!CLAVE_CONTESTADO && localStorage.getItem(CLAVE_CONTESTADO) === "1"; }catch(e){ return false; } }
 
 async function graciasEnlace(rec){
   $app.innerHTML = `<div class="thanks"><h1>¡Muchas gracias!</h1><p class="muted" style="font-size:24px" id="est">Enviando sus respuestas…</p><div id="re"></div></div>`;
-  setPendientes([...pendientes(), paquete(rec)]);
+  encolar(paquete(rec), ENDPOINT);
   const ok = await enviarPendientes();
   const est = document.getElementById("est");
   if(ok){ est.textContent = "Sus respuestas se enviaron. Ya puede cerrar esta página."; marcarContestado(); return; }
   est.textContent = ENDPOINT ? "No se pudieron enviar. Revise su conexión a internet y toque Reintentar." : "Esta página aún no está conectada a la hoja de respuestas.";
   if(ENDPOINT){
     document.getElementById("re").innerHTML = `<button class="btn" id="rt" style="margin-top:20px">Reintentar</button>`;
-    document.getElementById("rt").onclick = () => { setPendientes(pendientes()); graciasEnlaceReintento(); };
+    document.getElementById("rt").onclick = graciasEnlaceReintento;
   }
 }
 async function graciasEnlaceReintento(){
@@ -674,10 +688,10 @@ async function graciasEnlaceReintento(){
   else est.textContent = "Todavía no hay conexión. Intente de nuevo en un momento.";
 }
 
-function gracias(){
+function gracias(volver){
   $app.innerHTML = `<div class="thanks"><h1>¡Muchas gracias!</h1><p class="muted" style="font-size:24px">Sus respuestas quedaron guardadas.<br>Ya puede regresar la tablet.</p></div>
     <div class="corner lp" id="volver"></div>`;
-  longPress(document.getElementById("volver"), inicio);
+  longPress(document.getElementById("volver"), volver || inicio);
 }
 
 function salirEncuesta(){
@@ -685,8 +699,323 @@ function salirEncuesta(){
   overlay(`<h2>Encuesta en curso (${esc(S.rec.codigo)})</h2>
     <p class="muted">Si sales ahora, se guarda como incompleta hasta la pregunta ${esc(S.qid)}.</p>
     <div class="nav"><button class="btn quiet" id="o1">Continuar</button><div class="grow"></div><button class="btn warn" id="o2">Salir</button></div>`,
-    {"#o1": () => { S.t0 = performance.now(); }, "#o2": async () => { pararReloj(); await guardar(); S = null; inicio(); }});
+    {"#o1": () => { S.t0 = performance.now(); }, "#o2": async () => {
+      pararReloj(); await guardar(); const rec = S.rec, volver = S.volver; S = null;
+      if(rec.tipo === "piloto"){ encolar(paquete(rec), ENDPOINT_TESIS); enviarPendientes(); }
+      (volver || inicio)(); }});
   pararReloj();
+}
+
+/* =====================================================================
+   PILOTO — Anexo C (consentimiento), Anexo D (día 0) y Anexo E (semana 6)
+   Cada negocio tiene un solo código (N01…N40) que también usa en el POS.
+   ===================================================================== */
+const VERSION_PILOTO = "DE-2026-11-25";
+const N_PILOTO = 40;   // N01…N40: negocios reales del piloto (capacidad; la meta son 15 que completen)
+const N_PRUEBA = 10;   // T01…T10: solo para pruebas y demostraciones; nunca entran al análisis
+const esPrueba = c => String(c).startsWith("T");
+function codigosPiloto(){
+  const l = [];
+  for(let i = 1; i <= N_PILOTO; i++) l.push("N" + String(i).padStart(2, "0"));
+  for(let i = 1; i <= N_PRUEBA; i++) l.push("T" + String(i).padStart(2, "0"));
+  return l;
+}
+const CONSENTIMIENTO_PILOTO = "Usted acepta participar durante seis semanas en una investigación de la Maestría en Administración de la UMSNH. Recibirá sin costo una herramienta para registrar sus ventas y hacer su corte de caja. El investigador podrá ver los datos que la herramienta guarda: pedidos, totales, formas de pago, cortes de caja y sus diferencias, y el tiempo que toma cada corte. No se guardan datos de sus clientes. El investigador también tiene un negocio de comida; por eso se compromete a no usar sus datos con ningún fin comercial, a no compartirlos y a presentarlos solo en conjunto y con un código, nunca con su nombre. Le pediremos dos encuestas (hoy y en la semana 6). Durante el uso puede aparecer una pregunta opcional que puede omitir. Puede retirarse cuando quiera, sin dar explicaciones y sin ninguna consecuencia. Al completar la encuesta final recibirá seis meses adicionales de uso gratuito, sin importar lo que conteste.";
+
+// SUS: redacción provisional del Anexo E. Antes de aplicar, sustituir por la versión validada
+// de Sevilla-Gonzalez et al. (2020) y subir VERSION_PILOTO.
+const SUS_TEXTOS = [
+  "Creo que me gustaría usar esta herramienta con frecuencia.",
+  "La herramienta me pareció innecesariamente complicada.",
+  "La herramienta me pareció fácil de usar.",
+  "Creo que necesitaría ayuda de una persona con conocimientos técnicos para usarla.",
+  "Las funciones de la herramienta están bien integradas.",
+  "La herramienta tiene demasiadas inconsistencias.",
+  "Creo que la mayoría de las personas aprendería a usarla muy rápido.",
+  "La herramienta me pareció muy difícil de manejar.",
+  "Me sentí muy seguro al usar la herramienta.",
+  "Necesité aprender muchas cosas antes de poder usarla.",
+];
+const TAM_ITEMS = [
+  ["UP1","Usar la herramienta me permite hacer el corte más rápido."],
+  ["UP2","Usar la herramienta mejora el control de mi efectivo."],
+  ["UP3","Con la herramienta sé mejor cuánto gano cada día."],
+  ["UP4","La herramienta me resulta útil en mi negocio."],
+  ["FU1","Aprender a usar la herramienta fue fácil para mí."],
+  ["FU2","Me resulta fácil hacer lo que quiero con la herramienta."],
+  ["FU3","La herramienta es clara y fácil de entender."],
+  ["FU4","La herramienta es fácil de usar en hora pico."],
+  ["IU1","Pienso seguir usándola después de la investigación."],
+  ["IU2","Se la recomendaría a otro negocio como el mío."],
+];
+const copiaP = (id, extra) => Object.assign({}, PREGUNTAS.find(q => q.id === id), extra || {});
+
+function preguntasPiloto(momento, omitirPerfil){
+  const perfil = ["P1","P2","P3","P4","P5","P6","P7","P8","P9","P10"].map(id => copiaP(id));
+  const problemas = sec => ["P11","P12","P13","P14","P15","P16"].map(id => copiaP(id, {sec}));
+  if(momento === "D0") return [
+    ...(omitirPerfil ? [] : perfil),
+    ...problemas("Últimas cuatro semanas · sin la herramienta"),
+    {id:"EXP", sec:"Expectativa", text:"¿Qué tan útil cree que le será una herramienta para registrar ventas y hacer el corte?", type:"scale", lo:"Nada útil", hi:"Muy útil"},
+  ];
+  const usa = a => a.USO === 1;
+  const p11 = PREGUNTAS.find(q => q.id === "P11"), p13 = PREGUNTAS.find(q => q.id === "P13");
+  const antes = "Parte 2 · Antes de usar la herramienta";
+  return [
+    {id:"USO", sec:"Antes de empezar", text:"¿Sigue usando la herramienta?", type:"yesno"},
+    ...problemas("Parte 1 · Últimas cuatro semanas · con la herramienta"),
+    {id:"R1", sec:antes, hint:"Ahora piense en cómo estaba antes de usar la herramienta.", text:"En un mes normal de antes, ¿cuántos días no le cuadraba la caja?", type:"single", opts:p11.opts},
+    {id:"R2", sec:antes, text:"¿Cuántos minutos tardaba en su corte?", type:"single", opts:p13.opts},
+    {id:"R3", sec:antes, text:"¿Qué tan estresante le resultaba el corte?", type:"scale", lo:"Nada", hi:"Mucho"},
+    {id:"R4", sec:antes, text:"¿Qué tan seguro estaba de saber cuánto ganaba cada día?", type:"scale", lo:"Nada seguro", hi:"Totalmente seguro"},
+    {id:"ABANDONO", sec:"Para terminar", text:"¿En qué momento y por qué dejó de usarla?", type:"open", cond:a => a.USO === 0},
+    ...SUS_TEXTOS.map((t, i) => ({id:"SUS" + (i+1), sec:"Parte 3 · Uso de la herramienta", text:t, type:"scale", lo:"Totalmente en desacuerdo", hi:"Totalmente de acuerdo", cond:usa})),
+    ...TAM_ITEMS.map(([id, t]) => ({id, sec:"Parte 4 · Opinión sobre la herramienta", text:t, type:"scale", n:7, lo:"Totalmente en desacuerdo", hi:"Totalmente de acuerdo", cond:usa})),
+  ];
+}
+
+function puntajeSUS(a){
+  const v = Array.from({length: 10}, (_, i) => a["SUS" + (i+1)]);
+  if(v.some(x => typeof x !== "number")) return "";
+  return v.reduce((s, x, i) => s + (i % 2 === 0 ? x - 1 : 5 - x), 0) * 2.5;
+}
+
+async function iniciarEncuestaPiloto({codigo, token, momento, modo, aplicador, omitir, consentimiento_digital = "", volver}){
+  pantallaEncendida(true);
+  const d = new Date();
+  S = { rec: { id: codigo + "_" + momento, tipo: "piloto", codigo, token, momento, modo, aplicador,
+               omitio_perfil: omitir ? 1 : 0, consentimiento_digital, fecha: fechaLocal(d), hora: horaLocal(d),
+               inicio: fechaHora(d), inicio_ms: d.getTime(), fin: "", duracion_seg: null, completa: 0,
+               ultima_pregunta: "", ans: {}, t: {}, sus_score: "", version: VERSION_PILOTO },
+        ruta: [], qid: null, t0: 0, Q: preguntasPiloto(momento, omitir), tipo: "piloto", volver };
+  await guardar();
+  irA(S.Q[0].id);
+}
+
+/* Enlace personal: index.html?p=N07-K3&m=D0 (s=1 omite P1-P10 si ya contestó la Fase 1) */
+function iniciarPilotoRemoto(){
+  const [codigo, token] = CODIGO_P.split("-"), m = PARAMS.get("m");
+  const base = {codigo, token, momento: m, modo: "enlace", aplicador: "autoadministrada", omitir: m === "D0" && PARAMS.get("s") === "1"};
+  if(m === "D0"){
+    $app.innerHTML = `
+      <div class="sec">Encuesta inicial · antes de usar la herramienta</div>
+      <div class="card consent">${esc(CONSENTIMIENTO_PILOTO)}</div>
+      <div class="spacer"></div>
+      <div class="nav"><button class="btn ghost" id="no">No acepto</button><button class="btn grow" id="si">Acepto</button></div>`;
+    document.getElementById("no").onclick = () => { $app.innerHTML = `<div class="thanks"><h1>Gracias</h1><p class="muted" style="font-size:22px">No se guardó ninguna respuesta. Si tiene dudas, escriba a 1825492h@umich.mx.</p></div>`; };
+    document.getElementById("si").onclick = () => iniciarEncuestaPiloto({...base, consentimiento_digital: fechaHora(new Date())});
+  } else {
+    $app.innerHTML = `
+      <div class="thanks" style="justify-content:center">
+        <h1>Encuesta final del piloto</h1>
+        <p class="muted" style="font-size:22px">Gracias por estas seis semanas. Son unas preguntas sobre cómo le fue; toma unos 8 minutos. Sus respuestas se presentan solo en conjunto y con un código.</p>
+        <button class="btn" id="si" style="margin-top:24px">Comenzar</button>
+      </div>`;
+    document.getElementById("si").onclick = () => iniciarEncuestaPiloto(base);
+  }
+}
+
+/* ---------- Registro de los códigos del piloto (solo tablet) ---------- */
+const COLS_NEGOCIOS = ["codigo","token","estado","fecha_alta","instalacion","vinculo_f1","prueba"];
+function urlBase(){ return location.origin + location.pathname.replace(/index\.html$/, ""); }
+function urlPiloto(n, m){ return urlBase() + "?p=" + n.codigo + "-" + n.token + "&m=" + m + (m === "D0" && n.vinculo_f1 ? "&s=1" : ""); }
+function subirNegocios(lista){
+  encolar(JSON.stringify({lote: lista.map(n => ({hoja: "negocios", columnas: COLS_NEGOCIOS, fila: n}))}), ENDPOINT_TESIS);
+  enviarPendientes();
+}
+async function estadoRemoto(){
+  if(!ENDPOINT_TESIS || !navigator.onLine) return null;
+  try{ const r = await fetch(ENDPOINT_TESIS + "?accion=estado"); return await r.json(); }catch(e){ return null; }
+}
+
+async function pantallaPiloto(){
+  pantallaEncendida(false);
+  let negocios = (await DB.all("negocios")).sort((a,b) => a.codigo.localeCompare(b.codigo));
+  if(negocios.length && negocios.length < N_PILOTO + N_PRUEBA){   // completa los que falten (p. ej. T01-T10)
+    const hay = new Set(negocios.map(n => n.codigo)), nuevos = [];
+    for(const c of codigosPiloto()) if(!hay.has(c)){
+      const n = {codigo: c, token: sufijoAzar(), estado: "libre", fecha_alta: "", instalacion: "", vinculo_f1: "", prueba: esPrueba(c) ? 1 : 0};
+      await DB.put("negocios", n); nuevos.push(n);
+    }
+    if(nuevos.length) subirNegocios(nuevos);
+    negocios = (await DB.all("negocios")).sort((a,b) => a.codigo.localeCompare(b.codigo));
+  }
+  if(!negocios.length){
+    $app.innerHTML = `
+      <h1>Piloto</h1>
+      <p class="muted">Se generan ${N_PILOTO} códigos para negocios reales (N01 a N${N_PILOTO}) y ${N_PRUEBA} de prueba (T01 a T${N_PRUEBA}) para programar, probar y hacer demostraciones. Cada negocio usa el mismo código en sus dos encuestas y en el POS. Los T nunca entran al análisis.</p>
+      <div class="spacer"></div>
+      <div class="nav"><button class="btn quiet" id="bx">Volver</button><div class="grow"></div><button class="btn" id="bg">Generar los ${N_PILOTO + N_PRUEBA} códigos</button></div>`;
+    document.getElementById("bx").onclick = inicio;
+    document.getElementById("bg").onclick = async () => {
+      const lista = [];
+      for(const c of codigosPiloto()){
+        const n = {codigo: c, token: sufijoAzar(), estado: "libre", fecha_alta: "", instalacion: "", vinculo_f1: "", prueba: esPrueba(c) ? 1 : 0};
+        await DB.put("negocios", n); lista.push(n);
+      }
+      subirNegocios(lista); pantallaPiloto();
+    };
+    return;
+  }
+  const local = await DB.all("piloto");
+  const hecho = (c, m) => local.some(r => r.codigo === c && r.momento === m && r.completa === 1);
+  const fila = (n, rem) => {
+    const marca = m => (hecho(n.codigo, m) || (rem && rem[m] && rem[m][n.codigo] === 1)) ? "✓" : "—";
+    const est = n.estado === "libre" ? `<span class="muted">libre</span>` : `${n.instalacion}${n.vinculo_f1 ? " · " + esc(n.vinculo_f1) : ""}`;
+    return `<button class="opt" data-c="${n.codigo}" style="justify-content:space-between;min-height:60px;font-size:20px">
+      <b>${n.codigo}</b><span style="flex:1;margin-left:16px">${est}</span><span class="muted" style="font-variant-numeric:tabular-nums">D0 ${marca("D0")} · S6 ${marca("S6")}</span></button>`;
+  };
+  const pintar = rem => {
+    const reales = negocios.filter(n => !esPrueba(n.codigo)), pruebas = negocios.filter(n => esPrueba(n.codigo));
+    const asig = reales.filter(n => n.estado !== "libre").length;
+    $app.innerHTML = `
+      <h1>Piloto</h1>
+      <div class="muted small">${asig} de ${reales.length} negocios asignados. ${rem ? "Estado actualizado con la hoja de la tesis." : "Sin conexión: solo se ven las encuestas hechas en esta tablet."}</div>
+      <div class="opts" style="margin-top:18px;gap:10px">${reales.map(n => fila(n, rem)).join("")}</div>
+      <div class="sec" style="margin-top:26px">Códigos de prueba · no entran al análisis</div>
+      <div class="opts" style="margin-top:0;gap:10px">${pruebas.map(n => fila(n, rem)).join("")}</div>
+      <div class="nav"><button class="btn quiet" id="bx">Volver</button></div>`;
+    document.getElementById("bx").onclick = inicio;
+    $app.querySelectorAll("[data-c]").forEach(b => b.onclick = () => detallePiloto(b.dataset.c));
+  };
+  pintar(null);
+  const rem = await estadoRemoto();
+  if(rem && document.getElementById("bx")) pintar(rem);
+}
+
+async function detallePiloto(codigo){
+  const n = await DB.get("negocios", codigo);
+  if(n.estado === "libre"){
+    let inst = "";
+    $app.innerHTML = `
+      <h1>Asignar ${n.codigo}</h1>
+      <div class="sec" style="margin-top:12px">Instalación</div>
+      <div class="row" id="inst"><button class="btn ghost" data-v="presencial">Presencial</button><button class="btn ghost" data-v="remota">Remota</button></div>
+      <div class="sec" style="margin-top:22px">Código de la Fase 1 (opcional)</div>
+      <div class="card" style="margin-top:0"><input id="vf" autocomplete="off" placeholder="E012, Q003-AB o I005-CD" style="text-transform:uppercase">
+      <p class="hint small">Si este negocio contestó la Fase 1, su encuesta del día 0 se salta P1 a P10.</p></div>
+      <p class="hint small">Anota el nombre del negocio y este código solo en tu lista privada, fuera de la app.</p>
+      <div class="spacer"></div>
+      <div class="nav"><button class="btn quiet" id="bx">Cancelar</button><div class="grow"></div><button class="btn" id="bo" disabled>Asignar</button></div>`;
+    const bo = document.getElementById("bo");
+    $app.querySelectorAll("#inst .btn").forEach(b => b.onclick = () => {
+      inst = b.dataset.v; $app.querySelectorAll("#inst .btn").forEach(x => x.classList.toggle("ghost", x !== b)); bo.disabled = false;
+    });
+    document.getElementById("bx").onclick = pantallaPiloto;
+    bo.onclick = async () => {
+      Object.assign(n, {estado: "asignado", fecha_alta: fechaLocal(new Date()), instalacion: inst, vinculo_f1: document.getElementById("vf").value.trim().toUpperCase()});
+      await DB.put("negocios", n); subirNegocios([n]); detallePiloto(codigo);
+    };
+    return;
+  }
+  const local = await DB.all("piloto");
+  const estado = m => { const r = local.find(r => r.codigo === codigo && r.momento === m); return !r ? "sin contestar en esta tablet" : r.completa ? "contestada en esta tablet" : "incompleta en esta tablet"; };
+  const omitir = !!n.vinculo_f1;
+  $app.innerHTML = `
+    <h1>${n.codigo}${esPrueba(n.codigo) ? ` <span class="muted" style="font-size:20px">· prueba</span>` : ""}</h1>
+    <div class="muted small">Instalación ${n.instalacion} · alta ${n.fecha_alta}${n.vinculo_f1 ? " · Fase 1: " + esc(n.vinculo_f1) : ""}</div>
+    <div class="card">
+      <div class="sec">Día 0 · antes de usar el POS</div>
+      <p class="small muted" style="margin-top:0">${estado("D0")}</p>
+      <div class="row"><button class="btn" id="d0t">Contestar en la tablet</button><button class="btn ghost" id="d0e">Enlace personal</button></div>
+    </div>
+    <div class="card">
+      <div class="sec">Semana 6 · encuesta final</div>
+      <p class="small muted" style="margin-top:0">${estado("S6")}</p>
+      <div class="row"><button class="btn" id="s6t">Contestar en la tablet</button><button class="btn ghost" id="s6e">Enlace personal</button></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav"><button class="btn quiet" id="bx">Volver</button><div class="grow"></div><button class="btn quiet" id="bl">Liberar código</button></div>`;
+  const volver = () => detallePiloto(codigo);
+  document.getElementById("bx").onclick = pantallaPiloto;
+  document.getElementById("d0t").onclick = () => overlay(`<h2>Antes de entregar la tablet</h2>
+    <p class="muted">Confirma que el dueño ya firmó el consentimiento del piloto (Anexo C).</p>
+    <div class="nav"><button class="btn quiet" id="o1">Cancelar</button><div class="grow"></div><button class="btn" id="o2">Ya firmó</button></div>`,
+    {"#o1": null, "#o2": () => iniciarEncuestaPiloto({codigo, token: n.token, momento: "D0", modo: "presencial", aplicador: "autor", omitir, volver})});
+  document.getElementById("s6t").onclick = () => elegirModoS6(n, volver);
+  document.getElementById("d0e").onclick = () => mostrarEnlacePiloto(n, "D0");
+  document.getElementById("s6e").onclick = () => mostrarEnlacePiloto(n, "S6");
+  document.getElementById("bl").onclick = () => overlay(`<h2>¿Liberar ${n.codigo}?</h2>
+    <p class="muted">Úsalo solo si lo asignaste por error y el negocio no ha contestado nada. Las respuestas que ya existan no se borran.</p>
+    <div class="nav"><button class="btn quiet" id="o1">Cancelar</button><div class="grow"></div><button class="btn warn" id="o2">Liberar</button></div>`,
+    {"#o1": null, "#o2": async () => { Object.assign(n, {estado: "libre", fecha_alta: "", instalacion: "", vinculo_f1: ""}); await DB.put("negocios", n); subirNegocios([n]); pantallaPiloto(); }});
+}
+
+function elegirModoS6(n, volver){
+  let modo = "", aplicador = "";
+  $app.innerHTML = `
+    <h1>Semana 6 · ${n.codigo}</h1>
+    <div class="sec" style="margin-top:12px">¿Cómo se aplica?</div>
+    <div class="row" id="mo"><button class="btn ghost" data-v="presencial">En persona</button><button class="btn ghost" data-v="llamada">Por llamada (yo capturo)</button></div>
+    <div class="sec" style="margin-top:22px">¿Quién la aplica?</div>
+    <div class="row" id="ap"><button class="btn ghost" data-v="autor">Yo</button><button class="btn ghost" data-v="otra_persona">Otra persona</button></div>
+    <div class="spacer"></div>
+    <div class="nav"><button class="btn quiet" id="bx">Cancelar</button><div class="grow"></div><button class="btn" id="bo" disabled>Comenzar</button></div>`;
+  const bo = document.getElementById("bo");
+  const grupo = (id, fn) => $app.querySelectorAll(`#${id} .btn`).forEach(b => b.onclick = () => {
+    fn(b.dataset.v); $app.querySelectorAll(`#${id} .btn`).forEach(x => x.classList.toggle("ghost", x !== b)); bo.disabled = !(modo && aplicador);
+  });
+  grupo("mo", v => modo = v); grupo("ap", v => aplicador = v);
+  document.getElementById("bx").onclick = volver;
+  bo.onclick = () => iniciarEncuestaPiloto({codigo: n.codigo, token: n.token, momento: "S6", modo, aplicador, omitir: false, volver});
+}
+
+function mostrarEnlacePiloto(n, m){
+  const url = urlPiloto(n, m);
+  let svg = "";
+  try{ const qr = qrcode(0, "M"); qr.addData(url); qr.make(); svg = qr.createSvgTag({cellSize: 8, margin: 2, scalable: true}); }catch(e){}
+  const msg = m === "D0"
+    ? "Hola, este es el enlace de su encuesta inicial del piloto de la Maestría en Administración (UMSNH). Por favor contéstela antes de empezar a usar la herramienta; toma unos 5 minutos: " + url
+    : "Hola, este es el enlace de su encuesta final del piloto de la Maestría en Administración (UMSNH). Toma unos 8 minutos. ¡Gracias por participar! " + url;
+  $app.innerHTML = `
+    <div style="text-align:center">
+      <div class="sec">${n.codigo} · ${m === "D0" ? "Encuesta del día 0" : "Encuesta de la semana 6"}</div>
+      <div style="max-width:380px;margin:12px auto;background:#fff;padding:12px;border-radius:16px;border:1px solid var(--line)">${svg}</div>
+      <p class="muted small" style="word-break:break-all">${esc(url)}</p>
+      <p class="small">El enlace es solo para este negocio y vale para una sola respuesta.</p>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav"><button class="btn quiet" id="bx">Volver</button><div class="grow"></div>
+      <a class="btn" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener" style="text-decoration:none;display:flex;align-items:center">Enviar por WhatsApp</a></div>`;
+  const svgEl = $app.querySelector("svg"); if(svgEl){ svgEl.style.width = "100%"; svgEl.style.height = "auto"; }
+  document.getElementById("bx").onclick = () => detallePiloto(n.codigo);
+}
+
+function columnasPiloto(m){
+  const cols = ["codigo","prueba","momento","modo","aplicador","fecha","hora","inicio","fin","duracion_seg","completa","ultima_pregunta","version","omitio_perfil","consentimiento_digital"];
+  const Q = preguntasPiloto(m, false);
+  for(const q of Q){ if(q.type === "multi") q.opts.forEach(([k]) => cols.push(`${q.id}_${k}`)); else cols.push(q.id); }
+  if(m === "S6") cols.push("sus_score");
+  for(const q of Q) cols.push("t_" + q.id);
+  return cols;
+}
+function filaPiloto(r){
+  const o = {codigo:r.codigo, prueba: esPrueba(r.codigo) ? 1 : 0, momento:r.momento, modo:r.modo, aplicador:r.aplicador, fecha:r.fecha, hora:r.hora, inicio:r.inicio, fin:r.fin,
+             duracion_seg:r.duracion_seg ?? "", completa:r.completa, ultima_pregunta:r.ultima_pregunta, version:r.version,
+             omitio_perfil:r.omitio_perfil, consentimiento_digital:r.consentimiento_digital || "", sus_score:r.sus_score ?? ""};
+  for(const q of preguntasPiloto(r.momento, false)){
+    const v = r.ans[q.id];
+    if(q.type === "multi") q.opts.forEach(([k]) => o[`${q.id}_${k}`] = v ? v[k] : "");
+    else o[q.id] = v ?? "";
+    o["t_" + q.id] = r.t[q.id] != null ? Math.round(r.t[q.id]) : "";
+  }
+  return o;
+}
+
+/* ---------- Subir todo lo de la tablet a la hoja de la tesis ---------- */
+async function subirTodo(){
+  const items = [];
+  const fase1 = await DB.all("fase1");
+  fase1.forEach(r => items.push({hoja: "respuestas", columnas: columnasFase1(), fila: filaFase1(r)}));
+  (await DB.all("negativas")).forEach(r => items.push({hoja: "negativas", columnas: ["id","fecha","hora","colonia","motivo"],
+    fila: {...r, id: `NEG-${r.fecha}-${String(r.hora).replace(/:/g, "")}-${r.id}`}}));
+  (await DB.all("enlaces")).forEach(r => items.push({hoja: "qr_entregados", columnas: ["codigo","fecha","hora","colonia"], fila: r}));
+  (await DB.all("invitaciones")).forEach(r => items.push({hoja: "invitaciones", columnas: ["codigo","telefono","fecha"], fila: r}));
+  (await DB.all("negocios")).forEach(n => items.push({hoja: "negocios", columnas: COLS_NEGOCIOS, fila: n}));
+  (await DB.all("piloto")).forEach(r => items.push({hoja: "piloto_" + r.momento, columnas: columnasPiloto(r.momento), fila: filaPiloto(r), token: r.token}));
+  for(let i = 0; i < items.length; i += 20) encolar(JSON.stringify({lote: items.slice(i, i + 20)}), ENDPOINT_TESIS);
+  const ok = await enviarPendientes();
+  return {n: items.length, ok};
 }
 
 /* =====================================================================
@@ -742,6 +1071,23 @@ function codebook(){
   add("t_Pn","","Segundos que el encuestado pasó en esa pregunta (suma si regresó con Atrás)");
   add("(vacío)","","La pregunta no aplicó por un salto, se saltó (abiertas) o la encuesta se abandonó antes");
   add("Saltos","","P6 solo si P5 marca alguna plataforma; P12 solo si P11 ≠ 1; P17 solo si P8 ≠ 4; P18 y P19 solo si P8 = 4");
+  add("── PILOTO ──","","Pestañas piloto_D0 y piloto_S6; una fila por negocio (N01…N40, T01…T10)");
+  add("codigo (piloto)","N01…N40 / T01…T10","N = negocio real; T = código de prueba (se excluye del análisis)");
+  add("prueba","1 / 0","1 = código de prueba T01…T10: excluir del análisis");
+  add("momento","D0 / S6","Día 0 (antes de usar la herramienta) / semana 6");
+  add("modo (piloto)","presencial / llamada / enlace","Cómo se aplicó");
+  add("aplicador","autor / otra_persona / autoadministrada","Quién la aplicó");
+  add("omitio_perfil","1 / 0","Día 0 sin P1 a P10 porque se reutilizan las de su código de la Fase 1 (pestaña negocios, vinculo_f1)");
+  add("consentimiento_digital","","Fecha y hora en que tocó Acepto en el enlace del día 0 (vacío si firmó en papel)");
+  const vistos = new Set(PREGUNTAS.map(q => q.id));
+  for(const q of [...preguntasPiloto("D0", false), ...preguntasPiloto("S6", false)]){
+    if(vistos.has(q.id)) continue; vistos.add(q.id);
+    if(q.type === "single") q.opts.forEach((o,i) => add(q.id, i+1, `${q.text} — ${o}`));
+    else if(q.type === "yesno"){ add(q.id, 1, `${q.text} — Sí`); add(q.id, 0, `${q.text} — No`); }
+    else if(q.type === "scale"){ add(q.id, 1, `${q.text} — ${q.lo}`); add(q.id, q.n || 5, `${q.text} — ${q.hi}`); }
+    else add(q.id, "texto", `${q.text} (abierta)`);
+  }
+  add("sus_score","0 a 100","Impares: respuesta − 1; pares: 5 − respuesta; suma × 2.5");
   MOTIVOS_NEGATIVA.forEach(([k,l]) => add("negativas.motivo", k, l));
   add("negativas.motivo", "no_acepto", "Tocó No acepto en el consentimiento");
   return csv(["variable","valor","etiqueta"], filas);
@@ -755,6 +1101,8 @@ async function archivosPrincipales(){
     ["respuestas_fase1.csv", csv(columnasFase1(), f1.map(filaFase1))],
     ["negativas.csv", csv(["id","fecha","hora","colonia","motivo"], neg)],
     ["qr_entregados.csv", csv(["codigo","fecha","hora","colonia"], qrs)],
+    ["piloto_D0.csv", csv(columnasPiloto("D0"), (await DB.all("piloto")).filter(r => r.momento === "D0").map(filaPiloto))],
+    ["piloto_S6.csv", csv(columnasPiloto("S6"), (await DB.all("piloto")).filter(r => r.momento === "S6").map(filaPiloto))],
     ["codebook.csv", codebook()],
   ];
 }
@@ -786,7 +1134,7 @@ async function datos(){
     <h1>Datos y exportación</h1>
     <div class="card">
       <div class="sec">Respuestas y negativas</div>
-      <p class="small muted" style="margin-top:0">respuestas_fase1.csv, negativas.csv, qr_entregados.csv y codebook.csv (UTF-8, se abren en Excel con acentos).</p>
+      <p class="small muted" style="margin-top:0">respuestas_fase1.csv, negativas.csv, qr_entregados.csv, piloto_D0.csv, piloto_S6.csv y codebook.csv (UTF-8, se abren en Excel con acentos).</p>
       <div class="row"><button class="btn" id="e1">Descargar</button>${puedeCompartir ? `<button class="btn ghost" id="e2">Compartir (Drive, correo…)</button>` : ""}</div>
     </div>
     <div class="card">
@@ -799,13 +1147,18 @@ async function datos(){
       <div class="list">${f1.slice(0, 8).map(r => `<div><span>${r.codigo} · ${esc(r.colonia)}</span><span class="muted">${r.completa ? Math.floor(r.duracion_seg/60) + " min " + (r.duracion_seg%60) + " s" : "incompleta (" + esc(r.ultima_pregunta) + ")"}</span></div>`).join("") || `<div class="muted">Aún no hay encuestas.</div>`}</div>
     </div>
     <div class="card">
+      <div class="sec">Subir a la hoja de la tesis</div>
+      <p class="small muted" style="margin-top:0">Copia todo lo de la tablet (Fase 1, negativas, QR entregados, invitaciones, códigos y encuestas del piloto) a tu hoja de Google, en pestañas separadas. Puedes repetirlo: no se duplica nada.</p>
+      <button class="btn ghost" id="e6">Subir ahora</button><p class="small" id="e6m"></p>
+    </div>
+    <div class="card">
       <div class="sec">Tarjetas QR impresas</div>
       <p class="small muted" style="margin-top:0">Genera hojas de tarjetas con códigos distintos para dejarlas en los negocios.</p>
       <button class="btn ghost" id="e5">Imprimir tarjetas QR</button>
     </div>
     <div class="card">
       <div class="sec">Borrar datos de prueba</div>
-      <p class="small muted" style="margin-top:0">Borra todo y reinicia el código en E001. Exporta antes si lo necesitas.</p>
+      <p class="small muted" style="margin-top:0">Borra todo (también los 20 códigos del piloto) y reinicia el código en E001. Úsalo solo antes de empezar en campo.</p>
       <button class="btn warn" id="e4">Borrar todo</button>
     </div>
     <div class="nav"><button class="btn quiet" id="bx">Volver</button></div>`;
@@ -814,13 +1167,20 @@ async function datos(){
   document.getElementById("e2")?.addEventListener("click", async () => compartir(await archivosPrincipales()));
   document.getElementById("e3").onclick = async () => descargar(await archivoInvitaciones());
   document.getElementById("e5").onclick = imprimirQR;
+  document.getElementById("e6").onclick = async () => {
+    const m = document.getElementById("e6m");
+    if(!ENDPOINT_TESIS){ m.textContent = "Falta pegar la URL de la hoja de la tesis en ENDPOINT_TESIS."; return; }
+    m.textContent = "Subiendo…";
+    const r = await subirTodo();
+    m.textContent = r.ok ? `Listo: se enviaron ${r.n} registros. Revisa tu hoja.` : "No hay conexión. Se enviará en cuanto haya internet (vuelve a abrir esta pantalla).";
+  };
   document.getElementById("e4").onclick = () => {
     const o = overlay(`<h2>¿Borrar todos los datos?</h2><p class="muted">Escribe BORRAR para confirmar. No se puede deshacer.</p>
       <input id="cf" autocomplete="off"><div class="nav"><button class="btn quiet" id="o1">Cancelar</button><div class="grow"></div><button class="btn warn" id="o2">Borrar</button></div>`,
       {"#o1": null});
     o.querySelector("#o2").onclick = async () => {
       if(o.querySelector("#cf").value.trim().toUpperCase() !== "BORRAR") return;
-      for(const st of ["fase1","negativas","invitaciones","enlaces","impresos"]) await DB.clear(st);
+      for(const st of ["fase1","negativas","invitaciones","enlaces","impresos","piloto","negocios"]) await DB.clear(st);
       await setCfg("consecutivo", 0); await setCfg("consecutivoQR", 0); await setCfg("consecutivoImpreso", 0); o.remove(); datos();
     };
   };
@@ -836,7 +1196,7 @@ async function datos(){
     try{ await navigator.serviceWorker.register("sw.js"); }catch(e){}
   }
   document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible" && S) pantallaEncendida(true); });
-  if(PARAMS.get("c") && !CODIGO_QR){ $app.innerHTML = `<div class="thanks"><h1>Enlace no válido</h1><p class="muted" style="font-size:22px">Revise que el código esté completo o escanee de nuevo el QR.</p></div>`; return; }
+  if((PARAMS.get("c") && !CODIGO_QR) || (PARAMS.get("p") && !CODIGO_P)){ $app.innerHTML = `<div class="thanks"><h1>Enlace no válido</h1><p class="muted" style="font-size:22px">Revise que el código esté completo o escanee de nuevo el QR.</p></div>`; return; }
   if(MODO_ENLACE){
     enviarPendientes();
     // Si cierran la página a medias, se envía lo que llevaban como incompleta.
@@ -846,7 +1206,8 @@ async function datos(){
       try{ navigator.sendBeacon(ENDPOINT, new Blob([paquete(S.rec)], {type:"text/plain;charset=utf-8"})); }catch(e){}
     });
     if(yaContestado()){ $app.innerHTML = `<div class="thanks"><h1>¡Gracias!</h1><p class="muted" style="font-size:22px">Esta encuesta ya fue contestada.</p></div>`; return; }
-    consentimiento(MODO === "qr" ? "" : "enlace");
+    if(MODO === "piloto") iniciarPilotoRemoto();
+    else consentimiento(MODO === "qr" ? "" : "enlace");
   } else inicio();
 })();
 </script>

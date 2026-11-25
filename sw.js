@@ -1,6 +1,6 @@
 // Guarda la app en la tablet para que funcione sin internet.
 // Cuando publiques una versión nueva, cambia el número de CACHE.
-const CACHE = "encuestas-v4";
+const CACHE = "encuestas-v7";
 const ARCHIVOS = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png", "qrcode.js"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS))); self.skipWaiting(); });
 self.addEventListener("activate", e => {

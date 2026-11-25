@@ -61,3 +61,40 @@ Si el dueño acepta participar pero no puede contestar en ese momento: Inicio �
 ## 7. Práctica de la materia
 
 Manda a tus compañeros `https://TU-USUARIO.github.io/encuestas/index.html?modo=enlace`. Sus respuestas llegan a la hoja de práctica con códigos L-… y `modo = practica`. No se pide teléfono.
+
+## 8. Actualizar el Apps Script (si ya lo tenías publicado)
+
+Esta versión trae un `Codigo.gs` nuevo. En **cada** hoja (tesis y práctica):
+
+1. Extensiones → Apps Script → borra todo, pega el `Codigo.gs` nuevo y guarda.
+2. **Implementar → Administrar implementaciones →** lápiz (editar) **→ Versión: Nueva versión → Implementar.**
+
+Así la URL `/exec` sigue siendo la misma y no tienes que cambiar `index.html`. (Si haces "Nueva implementación", la URL cambia.)
+
+## 9. Piloto (40 códigos de negocios + 10 de prueba)
+
+Inicio → **Piloto** → **Generar los 50 códigos** (una sola vez): N01 a N40 para negocios reales y T01 a T10 de prueba (para programar el POS, probar y hacer demostraciones). Los T llevan `prueba = 1` en la hoja y nunca entran al análisis. Si ya habías generado códigos antes, al abrir Piloto se agregan solos los que falten. La meta de la tesis sigue siendo 15 negocios que completen; los 40 son margen por si hay abandonos.
+
+Cuando consigues un negocio:
+1. Toca un código libre → elige **Presencial** o **Remota** → si contestó la Fase 1, escribe su código (E012, Q003-AB…) → **Asignar**.
+2. Anota en tu lista privada (fuera de la app) qué negocio es ese código. Usa **ese mismo código** al darlo de alta en el POS.
+3. **Día 0** (antes de que use el POS):
+   - Presencial: consentimiento en papel → **Contestar en la tablet**.
+   - Remota: consentimiento por WhatsApp → **Enlace personal** → Enviar por WhatsApp. El enlace muestra el consentimiento y pide "Acepto".
+4. **Semana 6**: **Contestar en la tablet** (eliges en persona o por llamada, y quién aplica) o **Enlace personal**.
+
+Cada enlace es solo de ese negocio y vale una vez. La lista muestra ✓ en D0 y S6 cuando ya está contestada (con internet, consulta la hoja).
+
+## 10. Todo en un solo lugar: la hoja de la tesis
+
+| Pestaña | Qué tiene | Clave |
+|---|---|---|
+| respuestas | Fase 1 (tablet y QR) | E001 / Q001-XX / I001-XX |
+| negativas, qr_entregados | Registro de campo de la Fase 1 | — |
+| invitaciones | Teléfonos (aparte de las respuestas) | código de la encuesta |
+| negocios | Los 50 códigos del piloto y su asignación | N01…N40, T01…T10 |
+| piloto_D0 / piloto_S6 | Encuestas del día 0 y de la semana 6 | N01…N40, T01…T10 |
+| pos_cortes / pos_diario / pos_cierre | Copia de los datos del POS | N01…N40, T01…T10 |
+
+- Lo que se contesta por QR o enlace llega solo. Lo de la tablet se manda solo cuando hay internet; además, en **Datos y exportación → Subir ahora** copias todo lo de la tablet a la hoja (puedes repetirlo, no duplica).
+- Las pestañas `pos_…` se llenan cuando agregues `pos_espejo.js` a tu POS (instrucciones dentro del archivo). Firebase sigue siendo la base del POS; la hoja recibe una copia.
