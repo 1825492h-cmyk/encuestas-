@@ -107,8 +107,7 @@ const VERSION_INSTRUMENTO = "B-2026-11-24";
    - ENDPOINT_TESIS: respuestas de los QR que dejas a los negocios (tesis).
    - ENDPOINT_PRACTICA: respuestas de tus compañeros por ?modo=enlace (materia). */
 const ENDPOINT_TESIS = "https://script.google.com/macros/s/AKfycbxoD_dG7JY4NmF75-dKZgtg41fBd0Vi5VCghadXKrND-T3SIHKwG-TDp3SvZY_1Kq7z/exec";
-const ENDPOINT_PRACTICA = "https://script.google.com/macros/s/AKfycbwXkhK0ZbuLJCRG3b6HmaL6bpJ65qaIy7nxzxzipbNWwySs53bBmbkfl8lyTDXh1aWM/exec 
-";
+const ENDPOINT_PRACTICA = "https://script.google.com/macros/s/AKfycbwXkhK0ZbuLJCRG3b6HmaL6bpJ65qaIy7nxzxzipbNWwySs53bBmbkfl8lyTDXh1aWM/exec";
 
 const PARAMS = new URLSearchParams(location.search);
 const CODIGO_QR = /^[QI]\d{3}-[A-Z0-9]{2}$/.test(PARAMS.get("c") || "") ? PARAMS.get("c") : null;
