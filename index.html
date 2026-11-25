@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#1f3a5f">
+<title>Encuesta</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<script src="qrcode.js"></script>
+<style>
+:root{
+  --bg:#f6f5f1; --card:#ffffff; --ink:#1d2430; --muted:#6b7280; --line:#e3e1da;
+  --acc:#1f3a5f; --acc-soft:#e7edf5; --ok:#2f6f4e; --warn:#a14a2b;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:20px;line-height:1.4}
+body{user-select:none;-webkit-user-select:none}
+#app{min-height:100%;display:flex;flex-direction:column;max-width:900px;margin:0 auto;padding:24px 28px 32px}
+h1{font-size:30px;margin:0 0 8px}
+h2{font-size:28px;margin:0 0 6px;line-height:1.3}
+.muted{color:var(--muted)}
+.small{font-size:18px}
+.top{display:flex;align-items:center;gap:16px;margin-bottom:24px;min-height:44px}
+.bar{flex:1;height:10px;background:var(--line);border-radius:6px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--acc);transition:width .25s}
+.dot{width:44px;height:44px;border-radius:50%;flex:none;position:relative}
+.dot::after{content:"";position:absolute;inset:18px;border-radius:50%;background:var(--line)}
+.sec{font-size:18px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px}
+.hint{font-size:20px;color:var(--muted);margin:6px 0 0}
+.opts{display:flex;flex-direction:column;gap:14px;margin-top:28px}
+.opt{min-height:72px;padding:16px 22px;border:2px solid var(--line);border-radius:14px;background:var(--card);
+  font-size:24px;text-align:left;color:var(--ink);display:flex;align-items:center;gap:16px;cursor:pointer}
+.opt:active{transform:scale(.99)}
+.opt.sel{border-color:var(--acc);background:var(--acc-soft);font-weight:600}
+.opt .box{width:30px;height:30px;border:2px solid var(--muted);border-radius:7px;flex:none;display:grid;place-items:center;font-size:20px}
+.opt.sel .box{border-color:var(--acc);background:var(--acc);color:#fff}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:32px}
+.scale .opt{justify-content:center;font-size:32px;min-height:96px;text-align:center}
+.anchors{display:flex;justify-content:space-between;margin-top:10px;font-size:20px;color:var(--muted)}
+.spacer{flex:1}
+.nav{display:flex;gap:14px;margin-top:32px}
+.btn{min-height:68px;padding:14px 28px;border-radius:14px;border:2px solid var(--acc);background:var(--acc);color:#fff;
+  font-size:24px;font-weight:600;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--acc)}
+.btn.quiet{background:transparent;border-color:var(--line);color:var(--muted);font-weight:500}
+.btn.warn{background:var(--warn);border-color:var(--warn)}
+.btn[disabled]{opacity:.35}
+.grow{flex:1}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin-top:18px}
+.consent{font-size:24px;line-height:1.55}
+textarea,input{width:100%;font:inherit;font-size:24px;padding:16px 18px;border:2px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);
+  user-select:text;-webkit-user-select:text}
+textarea{min-height:190px;resize:none}
+textarea:focus,input:focus{outline:none;border-color:var(--acc)}
+.home-grid{display:grid;gap:16px;margin-top:22px}
+.home-grid .btn{min-height:96px;font-size:26px;text-align:left;padding-left:28px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:24px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.stat b{display:block;font-size:34px;font-variant-numeric:tabular-nums}
+.stat span{font-size:17px;color:var(--muted)}
+.code{font-size:56px;font-weight:700;letter-spacing:.04em;color:var(--acc);font-variant-numeric:tabular-nums}
+.phone{font-size:44px;letter-spacing:.06em;text-align:center;padding:18px;border-bottom:3px solid var(--acc);min-height:84px;font-variant-numeric:tabular-nums}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:22px;max-width:520px;margin-left:auto;margin-right:auto;width:100%}
+.keypad .opt{justify-content:center;font-size:34px;min-height:84px}
+.thanks{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.thanks h1{font-size:42px}
+.lp{position:relative;touch-action:none}
+.lp .ring{position:absolute;inset:0;border-radius:50%;background:conic-gradient(var(--acc) var(--p,0%),transparent 0)}
+.corner{position:fixed;right:18px;bottom:18px;width:56px;height:56px;border-radius:50%}
+.corner::after{content:"";position:absolute;inset:22px;border-radius:50%;background:var(--line)}
+.overlay{position:fixed;inset:0;background:rgba(20,24,32,.55);display:flex;align-items:center;justify-content:center;padding:24px;z-index:10}
+.overlay .card{max-width:620px;width:100%}
+.banner{background:#fff4d6;border:1px solid #e8d28e;padding:10px 14px;border-radius:10px;font-size:17px;margin-bottom:14px}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.list{font-size:18px}
+.list div{padding:8px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
+.hoja{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:20px;background:#fff}
+.tq{display:flex;gap:12px;align-items:center;padding:14px;border:1px dashed #9aa0a6;break-inside:avoid;page-break-inside:avoid;background:#fff;color:#000}
+.tq-qr{width:38%;flex:none}
+.tq-t{display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.3}
+.tq-t b{font-size:15px}
+.tq-c{font-size:20px;font-weight:700;letter-spacing:.05em;font-variant-numeric:tabular-nums;margin-top:4px}
+@media print{
+  @page{size:letter;margin:10mm}
+  html,body{background:#fff}
+  #app{padding:0;max-width:none}
+  .noprint{display:none}
+  .hoja{margin:0}
+  .tq{height:62mm}
+}
+@media (max-width:640px){#app{padding:16px 16px 22px} .stats{grid-template-columns:repeat(2,1fr)} .scale{gap:8px} .scale .opt{font-size:26px;min-height:72px;padding:8px} .consent{font-size:20px} h2{font-size:24px} .opt{font-size:21px;min-height:62px} .card{padding:18px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* =====================================================================
+   INSTRUMENTO — texto exacto del Anexo A y del Anexo B de la tesis.
+   Si cambias la redacción en la tesis, cámbiala aquí y sube la versión.
+   ===================================================================== */
+const VERSION_INSTRUMENTO = "B-2026-11-24";
+
+/* CONEXIÓN CON GOOGLE SHEETS. Pega entre comillas la URL de cada App web de Apps Script
+   (termina en /exec). Son dos hojas distintas para que nunca se mezclen los datos.
+   - ENDPOINT_TESIS: respuestas de los QR que dejas a los negocios (tesis).
+   - ENDPOINT_PRACTICA: respuestas de tus compañeros por ?modo=enlace (materia). */
+const ENDPOINT_TESIS = "https://script.google.com/macros/s/AKfycbypcl1EKOzgKTV87rjWGrgdUeTgDkI9L7SDd4Y2MY_e2_Bq6OnFLwb7kV3yJk5eJzLW/exec";
+const ENDPOINT_PRACTICA = "https://script.google.com/macros/s/AKfycby3KvSRwSjIpF-YVbc936PRb9Ay4wQqAkXpPnd6nIq-hVXDkgGsztyBN9YyODFDEj9q/exec";
+
+const PARAMS = new URLSearchParams(location.search);
+const CODIGO_QR = /^[QI]\d{3}-[A-Z0-9]{2}$/.test(PARAMS.get("c") || "") ? PARAMS.get("c") : null;
+const MODO = CODIGO_QR ? "qr" : (PARAMS.get("modo") === "enlace" ? "practica" : "tablet");
+const MODO_ENLACE = MODO !== "tablet";   // se contesta en el celular de la persona
+const ENDPOINT = MODO === "qr" ? ENDPOINT_TESIS : MODO === "practica" ? ENDPOINT_PRACTICA : "";
+
+const CONSENTIMIENTO = "Hola. Soy Alexis Daniel Bores Loeza, estudiante de la Maestría en Administración de la Universidad Michoacana de San Nicolás de Hidalgo. Estoy haciendo una investigación sobre cómo los negocios de comida manejan su caja y sus ventas. La encuesta dura de 3 a 4 minutos. Es anónima: no le pido su nombre ni el de su negocio. Participar es voluntario y puede dejar de contestar en cualquier momento. Los datos se usan solo para fines académicos y se presentan en conjunto, nunca por negocio. Si tiene dudas, puede escribir a 1825492h@umich.mx.";
+
+const S_A = "A. Perfil del negocio", S_B = "B. Canales y formas de pago", S_C = "C. Registro y cierre",
+      S_D = "D. Problemas de control · últimas cuatro semanas", S_E = "E. Herramientas";
+
+// type: single (valor = posición 1..n), multi (columnas 0/1), yesno (1 = sí, 0 = no), scale (1..5), open (texto)
+const PREGUNTAS = [
+  {id:"P1", sec:S_A, text:"Tipo de negocio", type:"single",
+   opts:["Hamburguesas","Tacos","Comida corrida","Antojitos","Pizzas","Mariscos","Otro"]},
+  {id:"P2", sec:S_A, text:"¿Cuántas personas atienden normalmente el negocio?", type:"single", opts:["1","2","3 o más"]},
+  {id:"P3", sec:S_A, text:"¿Cuánto tiempo lleva operando?", type:"single", opts:["Menos de 1 año","De 1 a 3 años","Más de 3 años"]},
+  {id:"P4", sec:S_A, text:"En un día normal, ¿cuántos pedidos atiende?", type:"single", opts:["Menos de 20","De 20 a 50","Más de 50"]},
+  {id:"P5", sec:S_B, text:"¿Vende por plataformas?", hint:"Puede marcar varias.", type:"multi",
+   opts:[["ninguna","Ninguna"],["didi","DiDi Food"],["uber","Uber Eats"],["rappi","Rappi"],["otra","Otra"]], exclusive:"ninguna"},
+  {id:"P6", sec:S_B, text:"Si vende por plataformas, ¿acepta pedidos pagados en efectivo que cobra el repartidor?", type:"yesno",
+   cond:a => a.P5 && ["didi","uber","rappi","otra"].some(k => a.P5[k] === 1)},
+  {id:"P7", sec:S_B, text:"De todas sus ventas, ¿qué parte se paga en efectivo?", type:"single",
+   opts:["Casi nada","Menos de la mitad","La mitad","Más de la mitad","Casi todo"]},
+  {id:"P8", sec:S_C, text:"¿Cómo registra principalmente sus ventas?", hint:"Elija una sola respuesta.", type:"single",
+   opts:["De memoria","En libreta","En hoja de cálculo","En una app o sistema de punto de venta","Otro"]},
+  {id:"P9", sec:S_C, text:"¿Con qué frecuencia hace corte o arqueo de caja?", type:"single", opts:["Diario","Algunas veces por semana","Casi nunca"]},
+  {id:"P10", sec:S_C, text:"Al hacer cuentas, ¿separa las ventas de plataformas de las de mostrador?", type:"single", opts:["Sí","A veces","No"]},
+  {id:"P11", sec:S_D, text:"En las últimas cuatro semanas, ¿cuántos días no le cuadró la caja?", type:"single",
+   opts:["Ninguno","De 1 a 3","De 4 a 7","De 8 a 15","Casi todos"]},
+  {id:"P12", sec:S_D, text:"Cuando no cuadra, ¿de cuánto es normalmente la diferencia?", type:"single",
+   opts:["Menos de 50 pesos","De 50 a 200","De 200 a 500","Más de 500"],
+   cond:a => a.P11 !== 1},   // si en P11 contestó "Ninguno", P12 no aplica
+  {id:"P13", sec:S_D, text:"¿Cuántos minutos tarda en hacer su corte?", type:"single", opts:["Menos de 5","De 5 a 15","De 15 a 30","Más de 30"]},
+  {id:"P14", sec:S_D, text:"¿Qué tan estresante le resulta el corte de caja?", type:"scale", lo:"Nada", hi:"Mucho"},
+  {id:"P15", sec:S_D, text:"¿Qué tan estresante le resulta tomar y cobrar pedidos en hora pico?", type:"scale", lo:"Nada", hi:"Mucho"},
+  {id:"P16", sec:S_D, text:"¿Qué tan seguro está de saber cuánto ganó realmente cada día?", type:"scale", lo:"Nada seguro", hi:"Totalmente seguro"},
+  {id:"P17", sec:S_E, text:"Si no usa un sistema de punto de venta, ¿por qué?", type:"single",
+   opts:["Es caro","Es complicado","No lo necesito","No confío","No conozco ninguno","Otro"], cond:a => a.P8 !== 4},
+  {id:"P18", sec:S_E, text:"Si usa uno, ¿qué tan fácil le parece de usar?", type:"scale", lo:"Muy difícil", hi:"Muy fácil", cond:a => a.P8 === 4},
+  {id:"P19", sec:S_E, text:"Si usa uno, ¿qué es lo que más le molesta?", type:"open", cond:a => a.P8 === 4},
+  {id:"P20", sec:S_E, text:"¿Qué es lo más difícil de cuadrar su caja?", type:"open"},
+];
+const INVITACION = "¿Le gustaría que lo invitemos más adelante a probar gratis una herramienta para el control de caja?";
+const MOTIVOS_NEGATIVA = [["no_quiso","No quiso"],["no_estaba","No estaba el dueño"],["ocupado","Estaba ocupado"]];
+// "no_acepto" se registra solo cuando tocan "No acepto" en el consentimiento.
+
+/* =====================================================================
+   ALMACENAMIENTO LOCAL (IndexedDB). Funciona sin internet.
+   ===================================================================== */
+const DB = (() => {
+  let db = null, memoria = null;
+  const STORES = {fase1:{keyPath:"codigo"}, enlaces:{keyPath:"codigo"}, impresos:{keyPath:"codigo"}, negativas:{keyPath:"id", autoIncrement:true}, invitaciones:{keyPath:"codigo"}, config:{keyPath:"k"}};
+  function abrir(){
+    return new Promise(res => {
+      try{
+        const r = indexedDB.open("encuestas_tesis", 3);
+        r.onupgradeneeded = () => { for(const [n,o] of Object.entries(STORES)) if(!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n,o); };
+        r.onsuccess = () => { db = r.result; res(true); };
+        r.onerror = () => { memoria = {}; res(false); };
+      }catch(e){ memoria = {}; res(false); }
+    });
+  }
+  function tx(store, mode, fn){
+    if(memoria){
+      memoria[store] = memoria[store] || new Map();
+      return Promise.resolve(fn(null, memoria[store]));
+    }
+    return new Promise((res, rej) => {
+      const t = db.transaction(store, mode), s = t.objectStore(store); let out;
+      const r = fn(s, null); if(r && "onsuccess" in r) r.onsuccess = () => out = r.result;
+      t.oncomplete = () => res(out); t.onerror = () => rej(t.error);
+    });
+  }
+  let memId = 1;
+  return {
+    abrir, enMemoria: () => !!memoria,
+    put: (st, v) => tx(st, "readwrite", (s, m) => { if(m){ const key = STORES[st].keyPath; if(v[key]==null) v[key]=memId++; m.set(v[key], structuredClone(v)); return; } return s.put(v); }),
+    get: (st, k) => tx(st, "readonly", (s, m) => m ? m.get(k) : s.get(k)),
+    all: (st) => tx(st, "readonly", (s, m) => m ? [...m.values()] : s.getAll()),
+    clear: (st) => tx(st, "readwrite", (s, m) => m ? m.clear() : s.clear()),
+  };
+})();
+
+async function cfg(k, def){ const r = await DB.get("config", k); return r ? r.v : def; }
+async function setCfg(k, v){ await DB.put("config", {k, v}); }
+
+/* =====================================================================
+   UTILIDADES
+   ===================================================================== */
+const $app = document.getElementById("app");
+const pad = n => String(n).padStart(2, "0");
+const fechaLocal = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const horaLocal = d => `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+const fechaHora = d => `${fechaLocal(d)} ${horaLocal(d)}`;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const codigoE = n => "E" + String(n).padStart(3, "0");
+
+let wakeLock = null;
+async function pantallaEncendida(on){
+  try{
+    if(on && "wakeLock" in navigator && !wakeLock) wakeLock = await navigator.wakeLock.request("screen");
+    if(!on && wakeLock){ await wakeLock.release(); wakeLock = null; }
+  }catch(e){}
+}
+
+/* Mantener presionado 2 s (solo el investigador). */
+function longPress(el, fn){
+  let t0 = 0, raf = 0;
+  const ring = document.createElement("i"); ring.className = "ring"; el.appendChild(ring);
+  const tick = () => {
+    const p = Math.min(1, (performance.now() - t0) / 2000);
+    ring.style.setProperty("--p", (p*100) + "%");
+    if(p >= 1){ stop(); fn(); } else raf = requestAnimationFrame(tick);
+  };
+  const start = e => { e.preventDefault(); t0 = performance.now(); raf = requestAnimationFrame(tick); };
+  const stop = () => { cancelAnimationFrame(raf); ring.style.setProperty("--p", "0%"); };
+  el.addEventListener("pointerdown", start);
+  ["pointerup","pointerleave","pointercancel"].forEach(ev => el.addEventListener(ev, stop));
+  el.addEventListener("contextmenu", e => e.preventDefault());
+}
+
+function overlay(html, binds){
+  const o = document.createElement("div"); o.className = "overlay"; o.innerHTML = `<div class="card">${html}</div>`;
+  document.body.appendChild(o);
+  const close = () => o.remove();
+  for(const [sel, fn] of Object.entries(binds)) o.querySelector(sel)?.addEventListener("click", () => { close(); fn && fn(); });
+  return o;
+}
+
+/* =====================================================================
+   PANTALLAS DEL INVESTIGADOR
+   ===================================================================== */
+async function inicio(){
+  pantallaEncendida(false);
+  const f1 = await DB.all("fase1"), neg = await DB.all("negativas"), qrs = await DB.all("enlaces");
+  const comp = f1.filter(r => r.completa === 1).length, inc = f1.length - comp, n = neg.length, q = qrs.length;
+  const contactos = comp + inc + n + q;
+  const tasa = contactos ? Math.round(comp / contactos * 100) + "%" : "—";
+  const durs = f1.filter(r => r.completa === 1).map(r => r.duracion_seg);
+  const prom = durs.length ? Math.round(durs.reduce((a,b)=>a+b,0)/durs.length) : null;
+  $app.innerHTML = `
+    ${DB.enMemoria() ? `<div class="banner">Modo de prueba: este navegador no permite guardar datos. Lo que contestes aquí se pierde al cerrar.</div>` : ""}
+    <h1>Encuestas de campo</h1>
+    <div class="muted small">Modo investigador · instrumento ${VERSION_INSTRUMENTO}</div>
+    <div class="stats">
+      <div class="stat"><b>${comp}</b><span>completas</span></div>
+      <div class="stat"><b>${inc}</b><span>incompletas</span></div>
+      <div class="stat"><b>${n}</b><span>negativas</span></div>
+      <div class="stat"><b>${q}</b><span>QR entregados</span></div>
+    </div>
+    <div class="muted small" style="margin-top:10px">Contestaron en la tablet: ${tasa} de los ${contactos} negocios contactados. Los QR contestados se ven en tu hoja de Google.</div>
+    ${prom != null ? `<div class="muted small" style="margin-top:10px">Duración promedio de las completas: ${Math.floor(prom/60)} min ${prom%60} s</div>` : ""}
+    <div class="home-grid">
+      <button class="btn" id="b1">Nueva encuesta Fase 1</button>
+      <button class="btn ghost" id="b2" disabled>Encuesta piloto · próxima etapa</button>
+      <button class="btn ghost" id="b5">Entregar QR · no puede contestar ahora</button>
+      <button class="btn ghost" id="b3">Registrar negativa</button>
+      <button class="btn quiet" id="b4">Datos y exportación</button>
+    </div>`;
+  document.getElementById("b1").onclick = prepararFase1;
+  document.getElementById("b3").onclick = () => registrarNegativa();
+  document.getElementById("b5").onclick = entregarQR;
+  document.getElementById("b4").onclick = datos;
+}
+
+async function campoColonia(valor){
+  const cols = await cfg("colonias", []);
+  return `<input id="colonia" list="lc" autocomplete="off" placeholder="Colonia" value="${esc(valor||"")}">
+          <datalist id="lc">${cols.map(c => `<option value="${esc(c)}">`).join("")}</datalist>`;
+}
+async function guardarColonia(c){
+  const cols = await cfg("colonias", []);
+  if(c && !cols.includes(c)){ cols.push(c); cols.sort((a,b)=>a.localeCompare(b,"es")); await setCfg("colonias", cols); }
+}
+
+async function prepararFase1(){
+  const sig = (await cfg("consecutivo", 0)) + 1;
+  const ultima = await cfg("ultimaColonia", "");
+  $app.innerHTML = `
+    <h1>Nueva encuesta · Fase 1</h1>
+    <div class="card">
+      <div class="muted small">Código que se asignará al aceptar</div>
+      <div class="code">${codigoE(sig)}</div>
+      <div style="margin-top:18px">${await campoColonia(ultima)}</div>
+      <div class="hint small">La fecha y la hora se guardan solas.</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav"><button class="btn quiet" id="bx">Cancelar</button><button class="btn grow" id="bo">Entregar tablet</button></div>`;
+  const inp = document.getElementById("colonia");
+  document.getElementById("bx").onclick = inicio;
+  document.getElementById("bo").onclick = async () => {
+    const col = inp.value.trim();
+    if(!col){ inp.focus(); inp.style.borderColor = "var(--warn)"; return; }
+    await guardarColonia(col); await setCfg("ultimaColonia", col);
+    consentimiento(col);
+  };
+}
+
+async function entregarQR(){
+  const sig = (await cfg("consecutivoQR", 0)) + 1;
+  const ultima = await cfg("ultimaColonia", "");
+  $app.innerHTML = `
+    <h1>Entregar QR</h1>
+    <p class="muted small">Para el dueño que acepta participar pero no puede contestar en este momento. Cada QR sirve para una sola encuesta.</p>
+    <div class="card">${await campoColonia(ultima)}</div>
+    <div class="spacer"></div>
+    <div class="nav"><button class="btn quiet" id="bx">Cancelar</button><button class="btn ghost" id="bi">Entregué uno impreso</button><button class="btn grow" id="bo">Generar QR</button></div>`;
+  document.getElementById("bx").onclick = inicio;
+  const inp = document.getElementById("colonia");
+  document.getElementById("bi").onclick = async () => {
+    const col = inp.value.trim();
+    if(!col){ inp.focus(); inp.style.borderColor = "var(--warn)"; return; }
+    await guardarColonia(col); await setCfg("ultimaColonia", col);
+    registrarImpreso(col);
+  };
+  document.getElementById("bo").onclick = async () => {
+    const col = inp.value.trim();
+    if(!col){ inp.focus(); inp.style.borderColor = "var(--warn)"; return; }
+    await guardarColonia(col); await setCfg("ultimaColonia", col);
+    await setCfg("consecutivoQR", sig);
+    const sufijo = Array.from({length: 2}, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join("");
+    const codigo = "Q" + String(sig).padStart(3, "0") + "-" + sufijo;
+    const d = new Date();
+    await DB.put("enlaces", {codigo, fecha: fechaLocal(d), hora: horaLocal(d), colonia: col});
+    mostrarQR(codigo);
+  };
+}
+
+const ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const sufijoAzar = () => Array.from({length: 2}, () => ALFABETO[Math.floor(Math.random() * 32)]).join("");
+
+async function registrarImpreso(colonia){
+  const usados = new Set((await DB.all("enlaces")).map(e => e.codigo));
+  const libres = (await DB.all("impresos")).map(e => e.codigo).filter(c => !usados.has(c)).sort();
+  $app.innerHTML = `
+    <h1>QR impreso entregado</h1>
+    <p class="muted small">Colonia: ${esc(colonia)}. Escribe el código que viene en la tarjeta que entregaste.</p>
+    <div class="card"><input id="cod" autocomplete="off" placeholder="I001-AB" style="text-transform:uppercase" list="lcod">
+      <datalist id="lcod">${libres.map(c => `<option value="${c}">`).join("")}</datalist>
+      <p class="hint small" id="msg"></p></div>
+    <div class="spacer"></div>
+    <div class="nav"><button class="btn quiet" id="bx">Cancelar</button><button class="btn grow" id="bo">Guardar</button></div>`;
+  document.getElementById("bx").onclick = inicio;
+  document.getElementById("bo").onclick = async () => {
+    const inp = document.getElementById("cod"), msg = document.getElementById("msg");
+    const codigo = inp.value.trim().toUpperCase();
+    if(!/^I\d{3}-[A-Z0-9]{2}$/.test(codigo)){ msg.textContent = "El código debe verse así: I001-AB."; inp.style.borderColor = "var(--warn)"; return; }
+    if(usados.has(codigo)){ msg.textContent = "Ese código ya se registró como entregado."; inp.style.borderColor = "var(--warn)"; return; }
+    if(!libres.includes(codigo)){ msg.textContent = "Ese código no está entre las tarjetas impresas desde esta tablet. Revisa que esté bien escrito."; inp.style.borderColor = "var(--warn)"; return; }
+    const d = new Date();
+    await DB.put("enlaces", {codigo, fecha: fechaLocal(d), hora: horaLocal(d), colonia});
+    inicio();
+  };
+}
+
+async function imprimirQR(){
+  $app.innerHTML = `
+    <h1>Imprimir tarjetas QR</h1>
+    <p class="muted small">Cada tarjeta trae un código distinto (I001-XX, I002-XX…) y vale para una sola encuesta. Solo cuentan para la tesis cuando registras que la entregaste.</p>
+    <div class="sec" style="margin-top:20px">¿Cuántas tarjetas?</div>
+    <div class="row">${[8, 16, 24, 40].map(n => `<button class="btn ghost" data-n="${n}">${n}</button>`).join("")}</div>
+    <div class="spacer"></div>
+    <div class="nav"><button class="btn quiet" id="bx">Volver</button></div>`;
+  document.getElementById("bx").onclick = datos;
+  $app.querySelectorAll("[data-n]").forEach(b => b.onclick = async () => {
+    const n = Number(b.dataset.n);
+    let k = await cfg("consecutivoImpreso", 0);
+    const existentes = new Set((await DB.all("impresos")).map(e => e.codigo));
+    const lote = [];
+    while(lote.length < n){
+      k++; const codigo = "I" + String(k).padStart(3, "0") + "-" + sufijoAzar();
+      if(existentes.has(codigo)) continue;
+      lote.push(codigo); await DB.put("impresos", {codigo, impreso: fechaLocal(new Date())});
+    }
+    await setCfg("consecutivoImpreso", k);
+    hojaImpresion(lote);
+  });
+}
+
+function hojaImpresion(lote){
+  const tarjeta = codigo => {
+    let svg = "";
+    try{ const qr = qrcode(0, "M"); qr.addData(urlQR(codigo)); qr.make(); svg = qr.createSvgTag({cellSize: 4, margin: 0, scalable: true}); }catch(e){}
+    return `<div class="tq"><div class="tq-qr">${svg}</div><div class="tq-t">
+      <b>Encuesta sobre el manejo de la caja</b>
+      <span>Maestría en Administración, UMSNH. Dura de 3 a 4 minutos y es anónima. Escanee el código con la cámara de su celular.</span>
+      <span class="tq-c">${codigo}</span></div></div>`;
+  };
+  $app.innerHTML = `
+    <div class="noprint">
+      <h1>Listo para imprimir</h1>
+      <p class="muted small">${lote.length} tarjetas, de ${lote[0]} a ${lote[lote.length - 1]}. Toca Imprimir y elige tu impresora o "Guardar como PDF". Después recórtalas por las líneas.</p>
+      <div class="nav" style="margin-top:12px"><button class="btn quiet" id="bx">Volver</button><div class="grow"></div><button class="btn" id="bp">Imprimir</button></div>
+    </div>
+    <div class="hoja">${lote.map(tarjeta).join("")}</div>`;
+  $app.querySelectorAll(".tq-qr svg").forEach(e => { e.style.width = "100%"; e.style.height = "auto"; });
+  document.getElementById("bx").onclick = datos;
+  document.getElementById("bp").onclick = () => window.print();
+}
+
+function urlQR(codigo){ return location.origin + location.pathname.replace(/index\.html$/, "") + "?c=" + codigo; }
+
+function mostrarQR(codigo){
+  const url = urlQR(codigo);
+  let svg = "";
+  try{ const qr = qrcode(0, "M"); qr.addData(url); qr.make(); svg = qr.createSvgTag({cellSize: 8, margin: 2, scalable: true}); }catch(e){ svg = "<p>No se pudo dibujar el QR.</p>"; }
+  const msg = "Hola, le comparto la encuesta de la Maestría en Administración de la UMSNH sobre cómo los negocios de comida manejan su caja. Dura de 3 a 4 minutos y es anónima: " + url;
+  $app.innerHTML = `
+    <div style="text-align:center">
+      <h2>Escanee con la cámara de su celular</h2>
+      <div style="max-width:420px;margin:18px auto;background:#fff;padding:12px;border-radius:16px;border:1px solid var(--line)">${svg}</div>
+      <div class="code" style="font-size:40px">${codigo}</div>
+      <p class="muted small" style="word-break:break-all">${esc(url)}</p>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav"><a class="btn ghost" id="wa" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener" style="text-decoration:none;display:flex;align-items:center">Enviar por WhatsApp</a><div class="grow"></div><button class="btn" id="bo">Listo</button></div>`;
+  const svgEl = $app.querySelector("svg"); if(svgEl){ svgEl.style.width = "100%"; svgEl.style.height = "auto"; }
+  document.getElementById("bo").onclick = inicio;
+}
+
+async function registrarNegativa(colPre, motivoFijo){
+  if(motivoFijo){ // viene de "No acepto"
+    const d = new Date();
+    await DB.put("negativas", {fecha: fechaLocal(d), hora: horaLocal(d), colonia: colPre, motivo: motivoFijo});
+    return;
+  }
+  const ultima = await cfg("ultimaColonia", "");
+  $app.innerHTML = `
+    <h1>Registrar negativa</h1>
+    <div class="card">${await campoColonia(ultima)}</div>
+    <div class="sec" style="margin-top:22px">Motivo</div>
+    <div class="opts" style="margin-top:0">${MOTIVOS_NEGATIVA.map(([k,l]) => `<button class="opt" data-k="${k}">${l}</button>`).join("")}</div>
+    <div class="spacer"></div>
+    <div class="nav"><button class="btn quiet" id="bx">Cancelar</button></div>`;
+  document.getElementById("bx").onclick = inicio;
+  const inp = document.getElementById("colonia");
+  $app.querySelectorAll(".opt").forEach(b => b.onclick = async () => {
+    const col = inp.value.trim();
+    if(!col){ inp.focus(); inp.style.borderColor = "var(--warn)"; return; }
+    await guardarColonia(col); await setCfg("ultimaColonia", col);
+    const d = new Date();
+    await DB.put("negativas", {fecha: fechaLocal(d), hora: horaLocal(d), colonia: col, motivo: b.dataset.k});
+    inicio();
+  });
+}
+
+/* =====================================================================
+   FLUJO DEL ENCUESTADO
+   ===================================================================== */
+let S = null; // {rec, ruta:[ids], qid, t0}
+
+function consentimiento(colonia){
+  pantallaEncendida(true);
+  $app.innerHTML = `
+    <div class="top"><div class="grow"></div>${MODO_ENLACE ? "" : `<div class="dot lp" id="esc"></div>`}</div>
+    <div class="card consent">${esc(CONSENTIMIENTO)}</div>
+    <div class="spacer"></div>
+    <div class="nav"><button class="btn ghost" id="no">No acepto</button><button class="btn grow" id="si">Acepto</button></div>`;
+  if(!MODO_ENLACE) longPress(document.getElementById("esc"), inicio);
+  document.getElementById("no").onclick = async () => {
+    if(MODO_ENLACE){ $app.innerHTML = `<div class="thanks"><h1>Gracias</h1><p class="muted" style="font-size:24px">No se guardó ninguna respuesta. Ya puede cerrar esta página.</p></div>`; return; }
+    await registrarNegativa(colonia, "no_acepto"); gracias();
+  };
+  document.getElementById("si").onclick = async () => {
+    let codigo;
+    if(MODO === "qr") codigo = CODIGO_QR;
+    else if(MODO === "practica"){ codigo = "L-" + Date.now().toString(36).slice(-4).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase(); }
+    else { const n = (await cfg("consecutivo", 0)) + 1; await setCfg("consecutivo", n); codigo = codigoE(n); }
+    const d = new Date();
+    S = { rec: { codigo, modo: MODO, colonia, fecha: fechaLocal(d), hora: horaLocal(d),
+                 inicio: fechaHora(d), inicio_ms: d.getTime(), fin: "", duracion_seg: null, completa: 0,
+                 ultima_pregunta: "", ans: {}, t: {}, invitacion: null, version: VERSION_INSTRUMENTO },
+          ruta: [], qid: null, t0: 0 };
+    await guardar();
+    irA(PREGUNTAS[0].id);
+  };
+}
+
+const visible = (q, a) => !q.cond || q.cond(a);
+const idx = id => PREGUNTAS.findIndex(q => q.id === id);
+
+function pararReloj(){
+  if(S && S.qid && S.t0){ S.rec.t[S.qid] = (S.rec.t[S.qid] || 0) + (performance.now() - S.t0) / 1000; }
+  if(S) S.t0 = 0;
+}
+
+async function guardar(){
+  // Borra respuestas de preguntas que ya no aplican por un cambio hecho con "Atrás".
+  for(const q of PREGUNTAS) if(!visible(q, S.rec.ans)) delete S.rec.ans[q.id];
+  await DB.put("fase1", S.rec);
+}
+
+function siguienteId(desde){
+  for(let i = idx(desde) + 1; i < PREGUNTAS.length; i++) if(visible(PREGUNTAS[i], S.rec.ans)) return PREGUNTAS[i].id;
+  return MODO === "practica" ? "FIN" : "INV";
+}
+
+function progreso(){
+  const vis = PREGUNTAS.filter(q => visible(q, S.rec.ans));
+  const pos = ["INV","TEL","FIN"].includes(S.qid) ? vis.length : vis.findIndex(q => q.id === S.qid);
+  return Math.round(pos / (vis.length + 1) * 100);
+}
+
+function marco(cuerpo, {conAtras = true, siguiente = null, saltar = false} = {}){
+  $app.innerHTML = `
+    <div class="top"><div class="bar"><i style="width:${progreso()}%"></i></div>${MODO_ENLACE ? "" : `<div class="dot lp" id="esc"></div>`}</div>
+    ${cuerpo}
+    <div class="spacer"></div>
+    <div class="nav">
+      ${conAtras ? `<button class="btn quiet" id="atras">Atrás</button>` : ""}
+      <div class="grow"></div>
+      ${saltar ? `<button class="btn ghost" id="saltar">Saltar</button>` : ""}
+      ${siguiente ? `<button class="btn" id="sig">${siguiente}</button>` : ""}
+    </div>`;
+  if(!MODO_ENLACE) longPress(document.getElementById("esc"), salirEncuesta);
+  document.getElementById("atras")?.addEventListener("click", atras);
+}
+
+async function irA(id, conRuta = true){
+  pararReloj();
+  if(conRuta && S.qid && S.qid !== id) S.ruta.push(S.qid);
+  S.qid = id; S.rec.ultima_pregunta = id; await guardar();
+  S.t0 = performance.now();
+  if(id === "FIN") return terminar();
+  if(id === "INV") return pantallaInvitacion();
+  if(id === "TEL") return pantallaTelefono();
+  pantallaPregunta(PREGUNTAS[idx(id)]);
+}
+
+function atras(){
+  const prev = S.ruta.pop();
+  if(prev) irA(prev, false);
+}
+
+function avanzar(q){ setTimeout(() => irA(siguienteId(q.id)), 220); }
+
+function pantallaPregunta(q){
+  const a = S.rec.ans[q.id];
+  const head = `<div class="sec">${esc(q.sec)}</div><h2>${esc(q.text)}</h2>${q.hint ? `<p class="hint">${esc(q.hint)}</p>` : ""}`;
+  const esPrimera = S.ruta.length === 0;
+
+  if(q.type === "single" || q.type === "yesno"){
+    const opts = q.type === "yesno" ? [["1","Sí"],["0","No"]] : q.opts.map((o,i) => [String(i+1), o]);
+    marco(head + `<div class="opts">${opts.map(([v,l]) => `<button class="opt ${a != null && String(a) === v ? "sel" : ""}" data-v="${v}">${esc(l)}</button>`).join("")}</div>`, {conAtras: !esPrimera});
+    $app.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+      $app.querySelectorAll(".opt").forEach(x => { x.classList.remove("sel"); x.disabled = true; });
+      b.classList.add("sel"); S.rec.ans[q.id] = Number(b.dataset.v); avanzar(q);
+    });
+  }
+  else if(q.type === "scale"){
+    marco(head + `<div class="scale">${[1,2,3,4,5].map(v => `<button class="opt ${a === v ? "sel" : ""}" data-v="${v}">${v}</button>`).join("")}</div>
+      <div class="anchors"><span>1 = ${esc(q.lo)}</span><span>5 = ${esc(q.hi)}</span></div>`, {conAtras: !esPrimera});
+    $app.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+      $app.querySelectorAll(".opt").forEach(x => { x.classList.remove("sel"); x.disabled = true; });
+      b.classList.add("sel"); S.rec.ans[q.id] = Number(b.dataset.v); avanzar(q);
+    });
+  }
+  else if(q.type === "multi"){
+    const sel = Object.assign(Object.fromEntries(q.opts.map(([k]) => [k, 0])), a || {});
+    marco(head + `<div class="opts">${q.opts.map(([k,l]) => `<button class="opt ${sel[k] ? "sel" : ""}" data-k="${k}"><span class="box">${sel[k] ? "✓" : ""}</span>${esc(l)}</button>`).join("")}</div>`,
+      {conAtras: !esPrimera, siguiente: "Siguiente"});
+    const sig = document.getElementById("sig");
+    const pintar = () => {
+      $app.querySelectorAll(".opt").forEach(b => { const on = !!sel[b.dataset.k]; b.classList.toggle("sel", on); b.querySelector(".box").textContent = on ? "✓" : ""; });
+      sig.disabled = !Object.values(sel).some(v => v);
+    };
+    $app.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+      const k = b.dataset.k; sel[k] = sel[k] ? 0 : 1;
+      if(sel[k] && k === q.exclusive) for(const x in sel) if(x !== k) sel[x] = 0;
+      if(sel[k] && k !== q.exclusive) sel[q.exclusive] = 0;
+      pintar();
+    });
+    pintar();
+    sig.onclick = () => { S.rec.ans[q.id] = {...sel}; irA(siguienteId(q.id)); };
+  }
+  else if(q.type === "open"){
+    marco(head + `<p class="hint">Opcional. Por favor no escriba nombres de personas ni de negocios.</p>
+      <textarea id="txt" placeholder="Escriba aquí su respuesta">${esc(typeof a === "string" ? a : "")}</textarea>`,
+      {conAtras: !esPrimera, siguiente: "Siguiente", saltar: true});
+    const ta = document.getElementById("txt");
+    document.getElementById("sig").onclick = () => { const v = ta.value.trim(); if(v) S.rec.ans[q.id] = v; else delete S.rec.ans[q.id]; irA(siguienteId(q.id)); };
+    document.getElementById("saltar").onclick = () => { delete S.rec.ans[q.id]; irA(siguienteId(q.id)); };
+  }
+}
+
+function pantallaInvitacion(){
+  const a = S.rec.invitacion;
+  marco(`<div class="sec">Para terminar</div><h2>${esc(INVITACION)}</h2>
+    <div class="opts">${[["1","Sí"],["0","No"]].map(([v,l]) => `<button class="opt ${a != null && String(a) === v ? "sel" : ""}" data-v="${v}">${l}</button>`).join("")}</div>`);
+  $app.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+    $app.querySelectorAll(".opt").forEach(x => { x.classList.remove("sel"); x.disabled = true; });
+    b.classList.add("sel"); S.rec.invitacion = Number(b.dataset.v);
+    setTimeout(() => S.rec.invitacion === 1 ? irA("TEL") : terminar(), 220);
+  });
+}
+
+function pantallaTelefono(){
+  let tel = "";
+  marco(`<div class="sec">Para terminar</div><h2>¿A qué teléfono le podemos escribir?</h2>
+    <p class="hint">Se guarda aparte de sus respuestas.</p>
+    <div class="phone" id="tel"></div>
+    <div class="keypad">${["1","2","3","4","5","6","7","8","9","","0","⌫"].map(k => k ? `<button class="opt" data-k="${k}">${k}</button>` : "<span></span>").join("")}</div>`,
+    {siguiente: "Guardar"});
+  const out = document.getElementById("tel"), sig = document.getElementById("sig");
+  const pintar = () => { out.textContent = tel.replace(/(\d{3})(\d{0,3})(\d{0,4})/, (m,a,b,c) => [a,b,c].filter(Boolean).join(" ")); sig.disabled = tel.length !== 10; };
+  $app.querySelectorAll(".keypad .opt").forEach(b => b.onclick = () => {
+    const k = b.dataset.k; tel = k === "⌫" ? tel.slice(0, -1) : (tel.length < 10 ? tel + k : tel); pintar();
+  });
+  pintar();
+  sig.onclick = async () => {
+    const inv = {codigo: S.rec.codigo, telefono: tel, fecha: fechaLocal(new Date())};
+    if(MODO_ENLACE) setPendientes([...pendientes(), JSON.stringify({tipo: "invitacion", fila: inv})]);
+    else await DB.put("invitaciones", inv);
+    terminar();
+  };
+}
+
+async function terminar(){
+  pararReloj();
+  const d = new Date();
+  S.rec.fin = fechaHora(d);
+  S.rec.duracion_seg = Math.round((d.getTime() - S.rec.inicio_ms) / 1000);
+  S.rec.completa = 1; S.rec.ultima_pregunta = "FIN";
+  await guardar();
+  const rec = S.rec; S = null;
+  if(MODO_ENLACE) return graciasEnlace(rec);
+  gracias();
+}
+
+/* ---------- Envío a Google Sheets (solo modo enlace) ---------- */
+function paquete(rec){ return JSON.stringify({tipo: "respuesta", columnas: columnasFase1(), fila: filaFase1(rec)}); }
+function pendientes(){ try{ return JSON.parse(localStorage.getItem("pendientes") || "[]"); }catch(e){ return []; } }
+function setPendientes(l){ try{ localStorage.setItem("pendientes", JSON.stringify(l)); }catch(e){} }
+async function enviar(cuerpo){
+  if(!ENDPOINT) throw new Error("sin endpoint");
+  await fetch(ENDPOINT, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: cuerpo});
+}
+async function enviarPendientes(){
+  const l = pendientes(); if(!l.length) return true;
+  const quedan = [];
+  for(const c of l){ try{ await enviar(c); }catch(e){ quedan.push(c); } }
+  setPendientes(quedan); return quedan.length === 0;
+}
+function marcarContestado(){ if(CODIGO_QR) try{ localStorage.setItem("contestado_" + CODIGO_QR, "1"); }catch(e){} }
+function yaContestado(){ try{ return !!CODIGO_QR && localStorage.getItem("contestado_" + CODIGO_QR) === "1"; }catch(e){ return false; } }
+
+async function graciasEnlace(rec){
+  $app.innerHTML = `<div class="thanks"><h1>¡Muchas gracias!</h1><p class="muted" style="font-size:24px" id="est">Enviando sus respuestas…</p><div id="re"></div></div>`;
+  setPendientes([...pendientes(), paquete(rec)]);
+  const ok = await enviarPendientes();
+  const est = document.getElementById("est");
+  if(ok){ est.textContent = "Sus respuestas se enviaron. Ya puede cerrar esta página."; marcarContestado(); return; }
+  est.textContent = ENDPOINT ? "No se pudieron enviar. Revise su conexión a internet y toque Reintentar." : "Esta página aún no está conectada a la hoja de respuestas.";
+  if(ENDPOINT){
+    document.getElementById("re").innerHTML = `<button class="btn" id="rt" style="margin-top:20px">Reintentar</button>`;
+    document.getElementById("rt").onclick = () => { setPendientes(pendientes()); graciasEnlaceReintento(); };
+  }
+}
+async function graciasEnlaceReintento(){
+  const est = document.getElementById("est"); est.textContent = "Enviando…";
+  if(await enviarPendientes()){ marcarContestado(); est.textContent = "Sus respuestas se enviaron. Ya puede cerrar esta página."; document.getElementById("re").innerHTML = ""; }
+  else est.textContent = "Todavía no hay conexión. Intente de nuevo en un momento.";
+}
+
+function gracias(){
+  $app.innerHTML = `<div class="thanks"><h1>¡Muchas gracias!</h1><p class="muted" style="font-size:24px">Sus respuestas quedaron guardadas.<br>Ya puede regresar la tablet.</p></div>
+    <div class="corner lp" id="volver"></div>`;
+  longPress(document.getElementById("volver"), inicio);
+}
+
+function salirEncuesta(){
+  if(!S){ inicio(); return; }
+  overlay(`<h2>Encuesta en curso (${esc(S.rec.codigo)})</h2>
+    <p class="muted">Si sales ahora, se guarda como incompleta hasta la pregunta ${esc(S.qid)}.</p>
+    <div class="nav"><button class="btn quiet" id="o1">Continuar</button><div class="grow"></div><button class="btn warn" id="o2">Salir</button></div>`,
+    {"#o1": () => { S.t0 = performance.now(); }, "#o2": async () => { pararReloj(); await guardar(); S = null; inicio(); }});
+  pararReloj();
+}
+
+/* =====================================================================
+   DATOS Y EXPORTACIÓN
+   ===================================================================== */
+const MULTI_P5 = PREGUNTAS.find(q => q.id === "P5");
+
+function columnasFase1(){
+  const cols = ["codigo","modo","fecha","hora","colonia","inicio","fin","duracion_seg","completa","ultima_pregunta","version"];
+  for(const q of PREGUNTAS){ if(q.type === "multi") q.opts.forEach(([k]) => cols.push(`${q.id}_${k}`)); else cols.push(q.id); }
+  cols.push("INV");
+  for(const q of PREGUNTAS) cols.push("t_" + q.id);
+  cols.push("t_INV","t_TEL");
+  return cols;
+}
+function filaFase1(r){
+  const o = {codigo:r.codigo, modo:r.modo || "tablet", fecha:r.fecha, hora:r.hora, colonia:r.colonia, inicio:r.inicio, fin:r.fin,
+             duracion_seg:r.duracion_seg ?? "", completa:r.completa, ultima_pregunta:r.ultima_pregunta, version:r.version};
+  for(const q of PREGUNTAS){
+    const v = r.ans[q.id];
+    if(q.type === "multi") q.opts.forEach(([k]) => o[`${q.id}_${k}`] = v ? v[k] : "");
+    else o[q.id] = v ?? "";
+  }
+  o.INV = r.invitacion ?? "";
+  for(const k of [...PREGUNTAS.map(q => q.id), "INV", "TEL"]) o["t_" + k] = r.t[k] != null ? Math.round(r.t[k]) : "";
+  return o;
+}
+function csv(cols, filas){
+  const c = v => { const s = String(v ?? ""); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
+  return "﻿" + [cols.join(","), ...filas.map(f => cols.map(k => c(f[k])).join(","))].join("\r\n");
+}
+function codebook(){
+  const filas = [];
+  const add = (variable, valor, etiqueta) => filas.push({variable, valor, etiqueta});
+  add("codigo","","Código: E001… en la tablet; Q001-XX con el QR personal; L-XXXXXXX práctica de la materia");
+  add("modo","tablet","Contestó en la tablet durante la visita");
+  add("modo","qr","Contestó después en su celular con el QR personal que se le dejó en la visita (Q001… generado en pantalla o I001… tarjeta impresa)");
+  add("modo","practica","Práctica de la materia por ?modo=enlace (no es dato de la tesis)");
+  add("colonia","","En respuestas por QR va vacía: se obtiene uniendo el código con qr_entregados.csv");
+  add("inicio","","Fecha y hora al tocar Acepto");
+  add("fin","","Fecha y hora al llegar a la pantalla de agradecimiento");
+  add("duracion_seg","","Segundos entre inicio y fin");
+  add("completa","1","Llegó al final");  add("completa","0","Abandonada a medias");
+  add("ultima_pregunta","","Última pantalla alcanzada (FIN = terminó)");
+  for(const q of PREGUNTAS){
+    if(q.type === "single") q.opts.forEach((o,i) => add(q.id, i+1, `${q.text} — ${o}`));
+    else if(q.type === "yesno"){ add(q.id, 1, `${q.text} — Sí`); add(q.id, 0, `${q.text} — No`); }
+    else if(q.type === "scale"){ add(q.id, 1, `${q.text} — ${q.lo}`); add(q.id, 5, `${q.text} — ${q.hi}`); }
+    else if(q.type === "multi") q.opts.forEach(([k,l]) => add(`${q.id}_${k}`, "1 / 0", `${q.text} — ${l} (1 = marcada, 0 = no)`));
+    else add(q.id, "texto", `${q.text} (abierta, opcional)`);
+  }
+  add("INV", 1, INVITACION + " — Sí"); add("INV", 0, INVITACION + " — No");
+  add("t_Pn","","Segundos que el encuestado pasó en esa pregunta (suma si regresó con Atrás)");
+  add("(vacío)","","La pregunta no aplicó por un salto, se saltó (abiertas) o la encuesta se abandonó antes");
+  add("Saltos","","P6 solo si P5 marca alguna plataforma; P12 solo si P11 ≠ 1; P17 solo si P8 ≠ 4; P18 y P19 solo si P8 = 4");
+  MOTIVOS_NEGATIVA.forEach(([k,l]) => add("negativas.motivo", k, l));
+  add("negativas.motivo", "no_acepto", "Tocó No acepto en el consentimiento");
+  return csv(["variable","valor","etiqueta"], filas);
+}
+
+async function archivosPrincipales(){
+  const f1 = (await DB.all("fase1")).sort((a,b) => a.codigo.localeCompare(b.codigo));
+  const neg = await DB.all("negativas");
+  const qrs = (await DB.all("enlaces")).sort((a,b) => a.codigo.localeCompare(b.codigo));
+  return [
+    ["respuestas_fase1.csv", csv(columnasFase1(), f1.map(filaFase1))],
+    ["negativas.csv", csv(["id","fecha","hora","colonia","motivo"], neg)],
+    ["qr_entregados.csv", csv(["codigo","fecha","hora","colonia"], qrs)],
+    ["codebook.csv", codebook()],
+  ];
+}
+async function archivoInvitaciones(){
+  const inv = await DB.all("invitaciones");
+  return [["invitaciones.csv", csv(["codigo","telefono","fecha"], inv)]];
+}
+
+function descargar(lista){
+  lista.forEach(([nombre, txt], i) => setTimeout(() => {
+    const url = URL.createObjectURL(new Blob([txt], {type:"text/csv;charset=utf-8"}));
+    const a = document.createElement("a"); a.href = url; a.download = nombre; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }, i * 700));
+}
+async function compartir(lista){
+  const files = lista.map(([n, t]) => new File([t], n, {type:"text/csv"}));
+  try{
+    if(navigator.canShare && navigator.canShare({files})){ await navigator.share({files, title:"Encuestas"}); return; }
+  }catch(e){ if(e.name === "AbortError") return; }
+  descargar(lista);
+}
+
+async function datos(){
+  const f1 = (await DB.all("fase1")).sort((a,b) => b.codigo.localeCompare(a.codigo));
+  const inv = await DB.all("invitaciones");
+  const puedeCompartir = !!(navigator.canShare);
+  $app.innerHTML = `
+    <h1>Datos y exportación</h1>
+    <div class="card">
+      <div class="sec">Respuestas y negativas</div>
+      <p class="small muted" style="margin-top:0">respuestas_fase1.csv, negativas.csv, qr_entregados.csv y codebook.csv (UTF-8, se abren en Excel con acentos).</p>
+      <div class="row"><button class="btn" id="e1">Descargar</button>${puedeCompartir ? `<button class="btn ghost" id="e2">Compartir (Drive, correo…)</button>` : ""}</div>
+    </div>
+    <div class="card">
+      <div class="sec">Invitaciones (${inv.length})</div>
+      <p class="small muted" style="margin-top:0">Teléfonos, en un archivo separado. No lo juntes con las respuestas.</p>
+      <div class="row"><button class="btn ghost" id="e3">Descargar invitaciones</button></div>
+    </div>
+    <div class="card">
+      <div class="sec">Últimas encuestas</div>
+      <div class="list">${f1.slice(0, 8).map(r => `<div><span>${r.codigo} · ${esc(r.colonia)}</span><span class="muted">${r.completa ? Math.floor(r.duracion_seg/60) + " min " + (r.duracion_seg%60) + " s" : "incompleta (" + esc(r.ultima_pregunta) + ")"}</span></div>`).join("") || `<div class="muted">Aún no hay encuestas.</div>`}</div>
+    </div>
+    <div class="card">
+      <div class="sec">Tarjetas QR impresas</div>
+      <p class="small muted" style="margin-top:0">Genera hojas de tarjetas con códigos distintos para dejarlas en los negocios.</p>
+      <button class="btn ghost" id="e5">Imprimir tarjetas QR</button>
+    </div>
+    <div class="card">
+      <div class="sec">Borrar datos de prueba</div>
+      <p class="small muted" style="margin-top:0">Borra todo y reinicia el código en E001. Exporta antes si lo necesitas.</p>
+      <button class="btn warn" id="e4">Borrar todo</button>
+    </div>
+    <div class="nav"><button class="btn quiet" id="bx">Volver</button></div>`;
+  document.getElementById("bx").onclick = inicio;
+  document.getElementById("e1").onclick = async () => descargar(await archivosPrincipales());
+  document.getElementById("e2")?.addEventListener("click", async () => compartir(await archivosPrincipales()));
+  document.getElementById("e3").onclick = async () => descargar(await archivoInvitaciones());
+  document.getElementById("e5").onclick = imprimirQR;
+  document.getElementById("e4").onclick = () => {
+    const o = overlay(`<h2>¿Borrar todos los datos?</h2><p class="muted">Escribe BORRAR para confirmar. No se puede deshacer.</p>
+      <input id="cf" autocomplete="off"><div class="nav"><button class="btn quiet" id="o1">Cancelar</button><div class="grow"></div><button class="btn warn" id="o2">Borrar</button></div>`,
+      {"#o1": null});
+    o.querySelector("#o2").onclick = async () => {
+      if(o.querySelector("#cf").value.trim().toUpperCase() !== "BORRAR") return;
+      for(const st of ["fase1","negativas","invitaciones","enlaces","impresos"]) await DB.clear(st);
+      await setCfg("consecutivo", 0); await setCfg("consecutivoQR", 0); await setCfg("consecutivoImpreso", 0); o.remove(); datos();
+    };
+  };
+}
+
+/* =====================================================================
+   ARRANQUE
+   ===================================================================== */
+(async () => {
+  await DB.abrir();
+  try{ if(navigator.storage && navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
+  if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+    try{ await navigator.serviceWorker.register("sw.js"); }catch(e){}
+  }
+  document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible" && S) pantallaEncendida(true); });
+  if(PARAMS.get("c") && !CODIGO_QR){ $app.innerHTML = `<div class="thanks"><h1>Enlace no válido</h1><p class="muted" style="font-size:22px">Revise que el código esté completo o escanee de nuevo el QR.</p></div>`; return; }
+  if(MODO_ENLACE){
+    enviarPendientes();
+    // Si cierran la página a medias, se envía lo que llevaban como incompleta.
+    window.addEventListener("pagehide", () => {
+      if(!S || !ENDPOINT) return;
+      pararReloj();
+      try{ navigator.sendBeacon(ENDPOINT, new Blob([paquete(S.rec)], {type:"text/plain;charset=utf-8"})); }catch(e){}
+    });
+    if(yaContestado()){ $app.innerHTML = `<div class="thanks"><h1>¡Gracias!</h1><p class="muted" style="font-size:22px">Esta encuesta ya fue contestada.</p></div>`; return; }
+    consentimiento(MODO === "qr" ? "" : "enlace");
+  } else inicio();
+})();
+</script>
+</body>
+</html>
