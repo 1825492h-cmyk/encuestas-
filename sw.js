@@ -1,11 +1,12 @@
 // Guarda la app en el aparato para que funcione sin internet.
-// Con internet, siempre busca primero la versión más reciente en GitHub;
-// sin internet, usa la copia guardada. Así las actualizaciones llegan solas.
-const CACHE = "encuestas-v8";
+// Con internet, busca primero la versión más reciente en GitHub;
+// sin internet, usa la copia guardada.
+const CACHE = "encuestas-v9";
 const ARCHIVOS = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png", "qrcode.js"];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS.map(a => new Request(a, {cache: "reload"})))));
+  // Si algún archivo falta, igual se instala con los que sí estén.
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all(ARCHIVOS.map(a => c.add(a).catch(() => null)))));
   self.skipWaiting();
 });
 
@@ -17,10 +18,10 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
+  const red = req.mode === "navigate" ? fetch(req) : fetch(req.url, {cache: "no-store"});
   e.respondWith(
-    fetch(req, {cache: "no-store"})
-      .then(res => {
-        if (res.ok) { const copia = res.clone(); caches.open(CACHE).then(c => c.put(req, copia)); }
+    red.then(res => {
+        if (res.ok && !res.redirected) { const copia = res.clone(); caches.open(CACHE).then(c => c.put(req.mode === "navigate" ? "index.html" : req, copia)); }
         return res;
       })
       .catch(() => caches.match(req, {ignoreSearch: true}).then(r => r || caches.match("index.html")))
